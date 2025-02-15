@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -8,7 +8,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {//Определение состояния ChatScreen
   final TextEditingController _controller = TextEditingController();
-  Socket? _socket;//Знак вопроса указывает, что переменная может быть null
+  late WebSocketChannel _channel;
   List<String> _messages = [];
 
   @override
@@ -17,10 +17,10 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
     _connectToServer();
   }
 
-  void _connectToServer() async {
+  void _connectToServer() {
     try{
-      _socket = await Socket.connect('localhost', 8080);//Подключение к серверу, который работает на локальном хосте на порту 8080. await указывает, что метод должен дождаться завершения подключения.
-      _socket!.listen(//Настраивает слушатель для получения данных из сокета
+      _channel = WebSocketChannel.connect(Uri.parse('ws://localhost:8080/ws'));
+      _channel.stream.listen(
         _onData,//Вызывается при получении данных
         onError: _onError,//Метод для обработки ошибок, возникающих при работе с сокетом
         onDone: _onDone,//Вызывается, когда соединение закрыто
@@ -30,10 +30,9 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
     }
   }
 
-  void _onData(List<int> data) {
-    final message = String.fromCharCodes(data);//Преобразует полученные байты в строку.
+  void _onData(dynamic data) {
     setState(() {//обновление состояния виджета (пользователь что-то напечатал)
-      _messages.add(message);
+      _messages.add(data);
     });
   }
 
@@ -46,8 +45,8 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   }
 
   void _sendMessage() {
-    if (_controller.text.isNotEmpty && _socket != null) {//предотвращает попытку отправки пустого сообщения и ошибки, если сокет не подключен.
-      _socket!.write(_controller.text + "\n");
+    if (_controller.text.isNotEmpty) {//предотвращает попытку отправки пустого сообщения и ошибки, если сокет не подключен.
+      _channel.sink.add(_controller.text);
       _controller.clear();//Очищает текстовое поле после отправки сообщения, чтобы пользователь мог ввести новое сообщение.
     }
   }
@@ -55,7 +54,24 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   @override
   Widget build(BuildContext context) {
     return Scaffold(// тип виджета
-      body: Row(
+      appBar: AppBar(
+        title: Text("Чат"),
+      ),
+      body: Column(
+        children: [
+      Expanded(
+      child: ListView.builder(
+      itemCount: _messages.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(_messages[index]),
+          );
+        },
+      ),
+    ),
+    Padding(
+    padding: const EdgeInsets.all(8.0),
+     child: Row(
         children: [
           Expanded(//чтобы текстовое поле занимало всё доступное пространство в ряду
             child: TextField(
@@ -68,13 +84,16 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
             onPressed: _sendMessage,
           ),
         ],
+     ),
+    ),
+        ],
       ),
     );
   }
 
   @override
   void dispose() {
-    _socket?.close();
+    _channel.sink.close();
     super.dispose();//необходимо для выполнения любых дополнительных операций по очистке, которые могут быть определены в родительском классе
   }
 }
