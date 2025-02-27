@@ -31,9 +31,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
     super.initState();
     _loadChats();
     // Подключаемся к WebSocket для обновлений
-    final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
+   final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
     channel.stream.listen((message) {
-      _loadChats(); // При любом сообщении обновляем чаты
+     _loadChats(); // При любом сообщении обновляем чаты
     });
   }
 

@@ -26,6 +26,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _loadMessages();
   }
 
+
+
   Future<void> _loadMessages() async {
     try {
       final response = await http.get(
@@ -73,18 +75,27 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // chat_screen.dart (исправленный код)
   void _sendMessage() {
     if (_controller.text.isNotEmpty) {
       final message = {
         'chat_id': widget.chatId,
         'user_id': widget.currentUserId,
         'text': _controller.text,
+        'isMe': true, // Помечаем как свое сообщение
+        'created_at': DateTime.now().toIso8601String(),
       };
-      print("Отправка сообщения: ${json.encode(message)}"); // Логируем отправляемое сообщение
+
+      // Оптимистично добавляем сообщение в список
+     // setState(() {
+       // _messages.insert(0, message); // Добавляем в начало списка
+     // });
+
       _channel.sink.add(json.encode(message));
       _controller.clear();
     }
   }
+
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId; // Определяем, ваше ли это сообщение
@@ -163,13 +174,13 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: ListView.builder(
-              reverse: true, // Сообщения отображаются снизу вверх
+              // reverse: true, //
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final message = _messages.reversed.toList()[index];
+                final message = _messages[index];
                 return _buildMessageBubble(message);
               },
-            ),
+            )
           ),
           Container(
             margin: EdgeInsets.all(8),
