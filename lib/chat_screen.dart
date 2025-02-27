@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
+  final int chatId;
+  final String username; // Имя пользователя, с которым ведется переписка
+
+  ChatScreen({required this.chatId, required this.username});
+
   @override
-  _ChatScreenState createState() => _ChatScreenState();//Создает и возвращает состояние виджета, которое будет управлять его жизненным циклом.
+  _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {//Определение состояния ChatScreen
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   late WebSocketChannel _channel;
   List<Map<String, dynamic>> _messages = [];
@@ -18,12 +24,12 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   }
 
   void _connectToServer() {
-    try{
-      _channel = WebSocketChannel.connect(Uri.parse('ws://localhost:8080/ws'));
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
       _channel.stream.listen(
-        _onData,//Вызывается при получении данных
-        onError: _onError,//Метод для обработки ошибок, возникающих при работе с сокетом
-        onDone: _onDone,//Вызывается, когда соединение закрыто
+        _onData, // Вызывается при получении данных
+        onError: _onError, // Метод для обработки ошибок, возникающих при работе с сокетом
+        onDone: _onDone, // Вызывается, когда соединение закрыто
       );
     } catch (e) {
       print("Ошибка подключения: $e");
@@ -31,7 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   }
 
   void _onData(dynamic data) {
-    setState(() {//обновление состояния виджета (пользователь что-то напечатал)
+    setState(() {
       _messages.add(data);
     });
   }
@@ -45,17 +51,33 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   }
 
   void _sendMessage() {
-    if (_controller.text.isNotEmpty) {//предотвращает попытку отправки пустого сообщения и ошибки, если сокет не подключен.
-      final message = {'text': _controller.text, 'isMe': true};
-      _channel.sink.add(_controller.text);
-      setState(() {
-        _messages.add(message);
-      });
-      _controller.clear();//Очищает текстовое поле после отправки сообщения, чтобы пользователь мог ввести новое сообщение.
+    if (_controller.text.isNotEmpty) {
+      final message = {
+        'chat_id': widget.chatId,
+        'text': _controller.text,
+        'isMe': true,
+      };
+      _channel.sink.add(json.encode(message));
+      _controller.clear();
     }
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
+    if (message['is_system'] == true) {
+      return Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            message['text'],
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+      );
+    }
     final isMe = message['isMe'];
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -98,9 +120,17 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Чат"),
+        title: Text(widget.username), // Имя пользователя, с которым ведется переписка
         backgroundColor: Colors.deepPurple,
         elevation: 4,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.search, color: Colors.white), // Иконка поиска
+            onPressed: () {
+              // Функционал поиска по сообщениям
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -156,6 +186,6 @@ class _ChatScreenState extends State<ChatScreen> {//Определение со�
   @override
   void dispose() {
     _channel.sink.close();
-    super.dispose();//необходимо для выполнения любых дополнительных операций по очистке, которые могут быть определены в родительском классе
+    super.dispose();
   }
 }

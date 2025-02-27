@@ -8,7 +8,7 @@ class RegisterScreen extends StatelessWidget {
 
   void _register(BuildContext context) async {
     final response = await http.post(
-      Uri.parse('http://localhost:8080/register'),
+      Uri.parse('http://192.168.0.106:8080/register'),
       body: {
         'username': _usernameController.text,
         'password': _passwordController.text,

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:messenger_client/chat_screen.dart';
+import 'package:messenger_client/chat_list_screen.dart';
 import 'package:messenger_client/register_screen.dart';
+import 'dart:convert';
 
 class LoginScreen extends StatelessWidget {
   final TextEditingController _usernameController = TextEditingController();
@@ -9,7 +10,7 @@ class LoginScreen extends StatelessWidget {
 
   void _login(BuildContext context) async {
     final response = await http.post(
-      Uri.parse('http://localhost:8080/login'),
+      Uri.parse('http://192.168.0.106:8080/login'),
       body: {
         'username': _usernameController.text,
         'password': _passwordController.text,
@@ -17,10 +18,19 @@ class LoginScreen extends StatelessWidget {
     );
 
     if (response.statusCode == 200) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => ChatScreen()),
-      );
+      try {
+        final responseData = json.decode(utf8.decode(response.bodyBytes));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatListScreen(userId: responseData['userId']),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка обработки ответа')),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка входа')),
