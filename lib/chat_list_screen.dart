@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'chat_screen.dart';
 import 'new_chat_screen.dart';
@@ -26,10 +27,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
   bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
   bool get isDesktopOrWeb => kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
-  @override
   void initState() {
     super.initState();
     _loadChats();
+    // Подключаемся к WebSocket для обновлений
+    final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
+    channel.stream.listen((message) {
+      _loadChats(); // При любом сообщении обновляем чаты
+    });
   }
 
   Future<void> _loadChats() async {
