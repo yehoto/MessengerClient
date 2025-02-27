@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
-  final String username; // Имя пользователя, с которым ведется переписка
+  final String username;
+  final int currentUserId;
 
-  ChatScreen({required this.chatId, required this.username});
+  ChatScreen({required this.chatId, required this.username, required this.currentUserId});
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -21,49 +23,75 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _connectToServer();
+    _loadMessages();
   }
 
-  void _connectToServer() {
+  Future<void> _loadMessages() async {
     try {
-      _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
-      _channel.stream.listen(
-        _onData, // Вызывается при получении данных
-        onError: _onError, // Метод для обработки ошибок, возникающих при работе с сокетом
-        onDone: _onDone, // Вызывается, когда соединение закрыто
+      final response = await http.get(
+        Uri.parse('http://192.168.0.106:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
       );
+
+      print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
+      print("Тело ответа: ${response.body}"); // Логируем тело ответа
+
+      if (response.statusCode == 200) {
+        final responseBody = utf8.decode(response.bodyBytes);
+        final List<dynamic> messages = json.decode(responseBody);
+        setState(() {
+          _messages = messages.map((msg) => msg as Map<String, dynamic>).toList();
+        });
+      } else {
+        print("Ошибка загрузки сообщений: ${response.statusCode}");
+      }
     } catch (e) {
-      print("Ошибка подключения: $e");
+      print("Ошибка загрузки сообщений: $e");
     }
   }
 
-  void _onData(dynamic data) {
-    setState(() {
-      _messages.add(data);
-    });
-  }
+  void _connectToServer() {
+    _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
 
-  void _onError(error) {
-    print("Ошибка: $error");
-  }
+    print("Подключение к WebSocket...");
 
-  void _onDone() {
-    print("Соединение закрыто");
+    _channel.stream.listen(
+          (data) {
+        print("Получено сообщение через WebSocket: $data"); // Логируем входящие данные
+        final message = json.decode(data);
+        if (message['chat_id'] == widget.chatId) {
+          setState(() {
+            _messages.add(message);
+          });
+        }
+      },
+      onError: (error) {
+        print("Ошибка WebSocket: $error");
+      },
+      onDone: () {
+        print("WebSocket соединение закрыто");
+      },
+    );
   }
 
   void _sendMessage() {
     if (_controller.text.isNotEmpty) {
       final message = {
         'chat_id': widget.chatId,
+        'user_id': widget.currentUserId,
         'text': _controller.text,
-        'isMe': true,
       };
+      print("Отправка сообщения: ${json.encode(message)}"); // Логируем отправляемое сообщение
       _channel.sink.add(json.encode(message));
       _controller.clear();
     }
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
-    if (message['is_system'] == true) {
+    final isMe = message['user_id'] == widget.currentUserId; // Определяем, ваше ли это сообщение
+    final text = message['text'] as String? ?? ''; // Проверка на null
+    final isSystem = message['is_system'] as bool? ?? false; // Проверка на null
+
+    if (isSystem) {
       return Center(
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -72,13 +100,13 @@ class _ChatScreenState extends State<ChatScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            message['text'],
+            text,
             style: TextStyle(color: Colors.grey[600]),
           ),
         ),
       );
     }
-    final isMe = message['isMe'];
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: Row(
@@ -104,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             child: Text(
-              message['text'],
+              text,
               style: TextStyle(
                 color: isMe ? Colors.white : Colors.black87,
                 fontSize: 16,
@@ -115,17 +143,16 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.username), // Имя пользователя, с которым ведется переписка
+        title: Text(widget.username),
         backgroundColor: Colors.deepPurple,
         elevation: 4,
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: Colors.white), // Иконка поиска
+            icon: Icon(Icons.search, color: Colors.white),
             onPressed: () {
               // Функционал поиска по сообщениям
             },
@@ -136,11 +163,12 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: ListView.builder(
-              reverse: true,
+              reverse: true, // Сообщения отображаются снизу вверх
               itemCount: _messages.length,
-              itemBuilder: (context, index) => _buildMessageBubble(
-                _messages.reversed.toList()[index],
-              ),
+              itemBuilder: (context, index) {
+                final message = _messages.reversed.toList()[index];
+                return _buildMessageBubble(message);
+              },
             ),
           ),
           Container(
