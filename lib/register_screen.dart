@@ -19,33 +19,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _register(BuildContext context) async {
     if (_usernameController.text.isEmpty || _nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Имя пользователя и имя обязательны!')),
+        const SnackBar(content: Text('Имя пользователя и имя обязательны!')),
       );
       return;
     }
 
-    final response = await http.post(
-      Uri.parse('http://192.168.216.250:8080/register'),
-      body: {
-        'username': _usernameController.text,
-        'password': _passwordController.text,
-        'name': _nameController.text,
-        'bio': _bioController.text,
-        'image': _imageFile != null ? _imageFile!.path : '', // Путь к изображению
-      },
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('http://192.168.0.106:8080/register'),
     );
 
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Регистрация успешна!')),
+    // Добавляем текстовые поля
+    request.fields['username'] = _usernameController.text;
+    request.fields['password'] = _passwordController.text;
+    request.fields['name'] = _nameController.text;
+    request.fields['bio'] = _bioController.text;
+
+    // Добавляем изображение, если выбрано
+    if (_imageFile != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          _imageFile!.path,
+        ),
       );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
-      );
-    } else {
+    }
+
+    try {
+      var response = await request.send();
+      var responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Регистрация успешна!')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка регистрации: $responseBody')),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка регистрации')),
+        SnackBar(content: Text('Ошибка подключения: $e')),
       );
     }
   }

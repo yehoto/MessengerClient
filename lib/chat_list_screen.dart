@@ -31,7 +31,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     super.initState();
     _loadChats();
     // Подключаемся к WebSocket для обновлений
-   final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.216.250:8080/ws'));
+   final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
     channel.stream.listen((message) {
      _loadChats(); // При любом сообщении обновляем чаты
     });
@@ -40,7 +40,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Future<void> _loadChats() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.216.250:8080/chats?user_id=${widget.userId}'),
+        Uri.parse('http://192.168.0.106:8080/chats?user_id=${widget.userId}'),
       );
 
       if (response.statusCode == 200) {
@@ -71,6 +71,24 @@ class _ChatListScreenState extends State<ChatListScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Widget _buildAvatar(String name, int? partnerId) {
+    final hasImage = partnerId != null; // Добавьте проверку наличия изображения в вашей модели
+
+    return CircleAvatar(
+      radius: 25,
+      backgroundColor: Colors.deepPurple,
+      backgroundImage: hasImage
+          ? NetworkImage('http://192.168.0.106:8080/user/image?id=$partnerId')
+          : null,
+      child: hasImage
+          ? null
+          : Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(fontSize: 20, color: Colors.white),
+      ),
+    );
   }
 
   // Верхняя панель для мобильных устройств
@@ -189,12 +207,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   itemBuilder: (context, index) {
                     final chat = chats[index];
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.deepPurple,
-                        child: Text((index + 1).toString()),
-                      ),
-                      title: Text(chat['username'] ?? 'Новый чат'), // Имя пользователя
-                      subtitle: Text(chat['lastMessage'] ?? ''), // Последнее сообщение
+                      leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']),
+                      title: Text(chat['partner_name'] ?? 'Новый чат'),
+                      subtitle: Text(chat['lastMessage'] ?? ''),
                       trailing: chat['unread'] > 0
                           ? CircleAvatar(
                         radius: 12,
@@ -241,7 +256,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           )
               : ChatScreen(
             chatId: _selectedChatId!,
-            username: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['username'], // Получаем имя пользователя
+            username: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_name'] ?? 'Новый чат',
             currentUserId: widget.userId, // Передаем ID текущего пользователя
           ),
         ),
@@ -262,17 +277,25 @@ class _ChatListScreenState extends State<ChatListScreen> {
       itemCount: chats.length,
       itemBuilder: (context, index) {
         final chat = chats[index];
-        final chatId = chat['id'] as int?; // Проверка на null
-        final username = chat['username'] as String? ?? 'Новый чат'; // Проверка на null
-        final lastMessage = chat['lastMessage'] as String? ?? ''; // Проверка на null
-        final unread = chat['unread'] as int? ?? 0; // Проверка на null
+        final partnerName = chat['partner_name'] as String? ?? 'Новый чат';
+        final partnerId = chat['partner_id'] as int?;
+        final lastMessage = chat['lastMessage'] as String? ?? '';
+        final unread = chat['unread'] as int? ?? 0;
 
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: Colors.deepPurple,
-            child: Text((index + 1).toString()),
+            backgroundImage: partnerId != null
+                ? NetworkImage('http://192.168.0.106:8080/user/image?id=$partnerId')
+                : null,
+            child: partnerId == null
+                ? Text(
+              partnerName.isNotEmpty ? partnerName[0].toUpperCase() : '?',
+              style: TextStyle(fontSize: 20, color: Colors.white),
+            )
+                : null,
           ),
-          title: Text(username),
+          title: Text(partnerName),
           subtitle: Text(lastMessage),
           trailing: unread > 0
               ? CircleAvatar(
@@ -281,13 +304,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
           )
               : null,
           onTap: () {
-            if (chatId != null) {
+            if (chat['id'] != null) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ChatScreen(
-                    chatId: chatId,
-                    username: username,
+                    chatId: chat['id'],
+                    username: partnerName,
                     currentUserId: widget.userId,
                   ),
                 ),
