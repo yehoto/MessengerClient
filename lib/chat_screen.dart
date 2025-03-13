@@ -108,9 +108,9 @@ class _ChatScreenState extends State<ChatScreen> {
       };
 
       // Оптимистично добавляем сообщение в список
-     // setState(() {
-       // _messages.insert(0, message); // Добавляем в начало списка
-     // });
+      // setState(() {
+      // _messages.insert(0, message); // Добавляем в начало списка
+      // });
 
       _channel.sink.add(json.encode(message));
       _controller.clear();
@@ -159,9 +159,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
   Widget _buildMessageBubble(Map<String, dynamic> message) {
-    final isMe = message['user_id'] == widget.currentUserId; // Определяем, ваше ли это сообщение
-    final text = message['text'] as String? ?? ''; // Проверка на null
-    final isSystem = message['is_system'] as bool? ?? false; // Проверка на null
+    final isMe = message['user_id'] == widget.currentUserId;
+    final text = message['text'] as String? ?? '';
+    final isSystem = message['is_system'] as bool? ?? false;
 
     if (isSystem) {
       return Center(
@@ -179,41 +179,150 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isMe ? Colors.deepPurple : Colors.grey[200],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-                bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
+    return GestureDetector(
+      onTap: () {
+        _showReactionPicker(message['id']);
+      },
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Row(
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Container(
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.deepPurple : Colors.grey[200],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
+                  bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
                 ),
-              ],
-            ),
-            child: Text(
-              text,
-              style: TextStyle(
-                color: isMe ? Colors.white : Colors.black87,
-                fontSize: 16,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                    ),
+                  ),
+                  //_buildReactions(message['id']message['id']),
+                  if (message['id'] != null) _buildReactions(message['id']), // Проверяем, что messageId не null
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildReactions(int messageId) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadReactions(messageId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        } else if (snapshot.hasError) {
+          return Text('Ошибка загрузки реакций');
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return SizedBox.shrink();
+        } else {
+          return Wrap(
+            spacing: 4, // Расстояние между эмодзи
+            children: snapshot.data!.map((reaction) {
+              return Text(
+                reaction['reaction'],
+                style: TextStyle(
+                  fontSize: 20,
+                  fontFamily: 'NotoColorEmoji', // Используйте шрифт, поддерживающий эмодзи
+                ),
+              );
+            }).toList(),
+          );
+        }
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadReactions(int messageId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.0.106:8080/get-reactions?message_id=$messageId'),
+      );
+
+      print("Response status: ${response.statusCode}"); // Логируем статус ответа
+      print("Response body: ${response.body}"); // Логируем тело ответа
+
+      if (response.statusCode == 200) {
+        final responseBody = utf8.decode(response.bodyBytes);
+        final List<dynamic> reactions = json.decode(responseBody);
+        return reactions.map((reaction) => reaction as Map<String, dynamic>).toList();
+      } else {
+        throw Exception('Failed to load reactions: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Error loading reactions: $e");
+      throw Exception('Failed to load reactions');
+    }
+  }
+
+  void _showReactionPicker(int messageId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 200,
+          child: GridView.count(
+            crossAxisCount: 6,
+            children: ['😀', '😍', '😂', '😡', '👍', '👎'].map((emoji) {
+              return GestureDetector(
+                onTap: () {
+                  _addReaction(messageId, emoji);
+                  Navigator.pop(context);
+                },
+                child: Center(
+                  child: Text(
+                    emoji,
+                    style: TextStyle(fontSize: 30),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _addReaction(int messageId, String reaction) async {
+    final response = await http.post(
+      Uri.parse('http://192.168.0.106:8080/add-reaction'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'message_id': messageId,
+        'user_id': widget.currentUserId,
+        'reaction': reaction,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add reaction');
+    }
+
+    // Обновляем сообщения после добавления реакции
+    _loadMessages();
   }
   @override
   Widget build(BuildContext context) {
@@ -255,14 +364,14 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              // reverse: true, //
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
-              },
-            )
+              child: ListView.builder(
+                // reverse: true, //
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final message = _messages[index];
+                  return _buildMessageBubble(message);
+                },
+              )
           ),
           Container(
             margin: EdgeInsets.all(8),
