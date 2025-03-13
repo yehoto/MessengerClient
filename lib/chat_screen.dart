@@ -34,12 +34,26 @@ class _ChatScreenState extends State<ChatScreen> {
     _loadMessages();
   }
 
+  @override
+  void didUpdateWidget(ChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Если chatId изменился, очищаем историю сообщений и загружаем новую
+    if (oldWidget.chatId != widget.chatId) {
+      setState(() {
+        _messages.clear(); // Очищаем старые сообщения
+      });
+      _loadMessages(); // Загружаем сообщения для нового чата
+    }
+  }
+
+
 
 
   Future<void> _loadMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.216.250:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
+        Uri.parse('http://192.168.0.106:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
