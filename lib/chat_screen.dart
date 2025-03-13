@@ -180,8 +180,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return GestureDetector(
-      onTap: () {
-        _showReactionPicker(message['id']);
+      onTapDown: (details) {
+        final tapPosition = details.globalPosition;
+        _showReactionPicker(context, message['id'], tapPosition);
       },
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -217,8 +218,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  //_buildReactions(message['id']message['id']),
-                  if (message['id'] != null) _buildReactions(message['id']), // Проверяем, что messageId не null
+                  if (message['id'] != null) _buildReactions(message['id']),
                 ],
               ),
             ),
@@ -240,14 +240,47 @@ class _ChatScreenState extends State<ChatScreen> {
           return SizedBox.shrink();
         } else {
           return Wrap(
-            spacing: 4, // Расстояние между эмодзи
+            spacing: 4,
             children: snapshot.data!.map((reaction) {
-              return Text(
-                reaction['reaction'],
-                style: TextStyle(
-                  fontSize: 20,
-                  fontFamily: 'NotoColorEmoji', // Используйте шрифт, поддерживающий эмодзи
-                ),
+              return FutureBuilder<Uint8List?>(
+                future: _loadUserImage(reaction['user_id']),
+                builder: (context, imageSnapshot) {
+                  final hasImage = imageSnapshot.hasData && imageSnapshot.data != null;
+                  final userInitial = reaction['user_id'].toString()[0]; // Первая буква ID пользователя
+
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                     // color: Colors.grey[200],
+                      color: Colors.purpleAccent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasImage)
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundImage: MemoryImage(imageSnapshot.data!),
+                          )
+                        else
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.deepPurple,
+                            child: Text(
+                              userInitial,
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        SizedBox(width: 4),
+                        Text(
+                          reaction['reaction'],
+                          style: TextStyle(fontSize: 20),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             }).toList(),
           );
@@ -278,31 +311,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _showReactionPicker(int messageId) {
-    showModalBottomSheet(
+  void _showReactionPicker(BuildContext context, int messageId, Offset tapPosition) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(tapPosition, tapPosition),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu(
       context: context,
-      builder: (BuildContext context) {
-        return Container(
-          height: 200,
-          child: GridView.count(
-            crossAxisCount: 6,
-            children: ['😀', '😍', '😂', '😡', '👍', '👎'].map((emoji) {
-              return GestureDetector(
-                onTap: () {
-                  _addReaction(messageId, emoji);
-                  Navigator.pop(context);
-                },
-                child: Center(
-                  child: Text(
-                    emoji,
-                    style: TextStyle(fontSize: 30),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+      position: position,
+      items: ['😀', '😍', '😂', '😡', '👍', '👎'].map((emoji) {
+        return PopupMenuItem(
+          child: Text(emoji, style: TextStyle(fontSize: 24)),
+          onTap: () {
+            _addReaction(messageId, emoji);
+          },
         );
-      },
+      }).toList(),
     );
   }
 
