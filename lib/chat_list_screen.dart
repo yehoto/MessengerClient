@@ -73,24 +73,51 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
-  Widget _buildAvatar(String name, int? partnerId) {
-    final hasImage = partnerId != null; // Добавьте проверку наличия изображения в вашей модели
+  Future<Uint8List?> _loadUserImage(int? partnerId) async {
+    if (partnerId == null) {
+      return null; // Если partnerId равен null, фото отсутствует
+    }
 
-    return CircleAvatar(
-      radius: 25,
-      backgroundColor: Colors.deepPurple,
-      backgroundImage: hasImage
-          ? NetworkImage('http://192.168.0.106:8080/user/image?id=$partnerId')
-          : null,
-      child: hasImage
-          ? null
-          : Text(
-        name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: TextStyle(fontSize: 20, color: Colors.white),
-      ),
+    final response = await http.get(
+      Uri.parse('http://192.168.0.106:8080/user/image?id=$partnerId'),
     );
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes; // Возвращаем бинарные данные фото
+    } else if (response.statusCode == 204) {
+      return null; // Фото отсутствует
+    } else {
+      throw Exception('Failed to load image');
+    }
   }
 
+  Widget _buildAvatar(String name, int? partnerId) {
+    return FutureBuilder<Uint8List?>(
+      future: _loadUserImage(partnerId), // Загружаем фото
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircleAvatar(
+            backgroundColor: Colors.deepPurple,
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        } else if (snapshot.hasError || snapshot.data == null) {
+          // Если фото нет или произошла ошибка, показываем кружочек с буквой
+          return CircleAvatar(
+            backgroundColor: Colors.deepPurple,
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: TextStyle(fontSize: 20, color: Colors.white),
+            ),
+          );
+        } else {
+          // Если фото есть, отображаем его
+          return CircleAvatar(
+            backgroundImage: MemoryImage(snapshot.data!),
+          );
+        }
+      },
+    );
+  }
   // Верхняя панель для мобильных устройств
   AppBar _buildMobileAppBar() {
     return AppBar(
@@ -207,7 +234,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   itemBuilder: (context, index) {
                     final chat = chats[index];
                     return ListTile(
-                      leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']),
+                      leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']), // Используем _buildAvatar
                       title: Text(chat['partner_name'] ?? 'Новый чат'),
                       subtitle: Text(chat['lastMessage'] ?? ''),
                       trailing: chat['unread'] > 0
@@ -258,6 +285,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             chatId: _selectedChatId!,
             username: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_name'] ?? 'Новый чат',
             currentUserId: widget.userId, // Передаем ID текущего пользователя
+            partnerId: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_id'], // Передаем partnerId
           ),
         ),
       ],
@@ -283,18 +311,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         final unread = chat['unread'] as int? ?? 0;
 
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.deepPurple,
-            backgroundImage: partnerId != null
-                ? NetworkImage('http://192.168.0.106:8080/user/image?id=$partnerId')
-                : null,
-            child: partnerId == null
-                ? Text(
-              partnerName.isNotEmpty ? partnerName[0].toUpperCase() : '?',
-              style: TextStyle(fontSize: 20, color: Colors.white),
-            )
-                : null,
-          ),
+          leading: _buildAvatar(partnerName, partnerId), // Используем _buildAvatar
           title: Text(partnerName),
           subtitle: Text(lastMessage),
           trailing: unread > 0
@@ -310,8 +327,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 MaterialPageRoute(
                   builder: (context) => ChatScreen(
                     chatId: chat['id'],
-                    username: partnerName,
+                    username: chat['partner_name'] ?? 'Новый чат',
                     currentUserId: widget.userId,
+                    partnerId: chat['partner_id'], // Передаем partnerId
                   ),
                 ),
               );

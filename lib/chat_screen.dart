@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data'; // Добавьте этот импорт
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
   final String username;
   final int currentUserId;
+  final int partnerId; // Добавляем partnerId
 
-  ChatScreen({required this.chatId, required this.username, required this.currentUserId});
+  ChatScreen({
+    required this.chatId,
+    required this.username,
+    required this.currentUserId,
+    required this.partnerId, // Добавляем partnerId
+  });
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -18,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   late WebSocketChannel _channel;
   List<Map<String, dynamic>> _messages = [];
+  bool _isUserOnline = false; // Состояние для статуса пользователя
 
   @override
   void initState() {
@@ -52,27 +60,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _connectToServer() {
-    _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.216.250:8080/ws'));
-
-    print("Подключение к WebSocket...");
-
-    _channel.stream.listen(
-          (data) {
-        print("Получено сообщение через WebSocket: $data"); // Логируем входящие данные
-        final message = json.decode(data);
-        if (message['chat_id'] == widget.chatId) {
-          setState(() {
-            _messages.add(message);
-          });
-        }
-      },
-      onError: (error) {
-        print("Ошибка WebSocket: $error");
-      },
-      onDone: () {
-        print("WebSocket соединение закрыто");
-      },
+    _channel = WebSocketChannel.connect(
+      Uri.parse('ws://192.168.0.106:8080/ws?user_id=${widget.currentUserId}'),
     );
+
+    _channel.stream.listen((data) {
+      final message = json.decode(data);
+      if (message['type'] == 'user_status' && message['user_id'] == widget.chatId) {
+        setState(() {
+          _isUserOnline = message['online'];
+        });
+      } else if (message['chat_id'] == widget.chatId) {
+        setState(() {
+          _messages.add(message);
+        });
+      }
+    }, onError: (error) {
+      print("Ошибка WebSocket: $error");
+    }, onDone: () {
+      print("WebSocket соединение закрыто");
+    });
   }
 
   // chat_screen.dart (исправленный код)
@@ -96,7 +103,47 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<Uint8List?> _loadUserImage(int userId) async {
+    final response = await http.get(
+      Uri.parse('http://192.168.0.106:8080/user/image?id=$userId'),
+    );
 
+    if (response.statusCode == 200) {
+      return response.bodyBytes; // Возвращаем бинарные данные фото
+    } else if (response.statusCode == 204) {
+      return null; // Фото отсутствует
+    } else {
+      throw Exception('Failed to load image');
+    }
+  }
+
+  Widget _buildUserAvatar() {
+    return FutureBuilder<Uint8List?>(
+      future: _loadUserImage(widget.partnerId), // Загружаем фото
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircleAvatar(
+            backgroundColor: Colors.purple,
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        } else if (snapshot.hasError || snapshot.data == null) {
+          // Если фото нет или произошла ошибка, показываем кружочек с буквой
+          return CircleAvatar(
+            backgroundColor: Colors.purple,
+            child: Text(
+              widget.username.isNotEmpty ? widget.username[0].toUpperCase() : '?',
+              style: TextStyle(color: Colors.white),
+            ),
+          );
+        } else {
+          // Если фото есть, отображаем его
+          return CircleAvatar(
+            backgroundImage: MemoryImage(snapshot.data!),
+          );
+        }
+      },
+    );
+  }
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId; // Определяем, ваше ли это сообщение
     final text = message['text'] as String? ?? ''; // Проверка на null
@@ -158,17 +205,38 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.username),
         backgroundColor: Colors.deepPurple,
         elevation: 4,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: Colors.white),
-            onPressed: () {
-              // Функционал поиска по сообщениям
-            },
-          ),
-        ],
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Кружочек с фото или первой буквой имени
+            _buildUserAvatar(),
+            SizedBox(width: 10),
+            // Имя и статус
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.username),
+                Text(
+                  _isUserOnline ? 'В сети' : 'Не в сети',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _isUserOnline ? Colors.green : Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(width: 20),
+            // Значок лупы
+            IconButton(
+              icon: Icon(Icons.search, color: Colors.white),
+              onPressed: () {
+                // Поиск по сообщениям
+              },
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
