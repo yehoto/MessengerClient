@@ -26,7 +26,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
   Future<void> _loadUsers() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/users?current_user_id=${widget.userId}'), // Добавляем параметр current_user_id
+        Uri.parse('http://192.168.216.250:8080/users?current_user_id=${widget.userId}'), // Добавляем параметр current_user_id
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
@@ -57,7 +57,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
   Future<void> _createChat(int targetUserId) async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.0.106:8080/chats'),
+        Uri.parse('http://192.168.216.250:8080/chats'),
         body: {
           'user_id': targetUserId.toString(),
           'current_user_id': widget.userId.toString(),

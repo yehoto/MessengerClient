@@ -31,7 +31,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     super.initState();
     _loadChats();
     // Подключаемся к WebSocket для обновлений
-   final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
+   final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.216.250:8080/ws'));
     channel.stream.listen((message) {
      _loadChats(); // При любом сообщении обновляем чаты
     });
@@ -40,7 +40,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Future<void> _loadChats() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/chats?user_id=${widget.userId}'),
+        Uri.parse('http://192.168.216.250:8080/chats?user_id=${widget.userId}'),
       );
 
       if (response.statusCode == 200) {

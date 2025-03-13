@@ -31,7 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
+        Uri.parse('http://192.168.216.250:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
@@ -52,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _connectToServer() {
-    _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
+    _channel = WebSocketChannel.connect(Uri.parse('ws://192.168.216.250:8080/ws'));
 
     print("Подключение к WebSocket...");
 

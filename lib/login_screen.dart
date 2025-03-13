@@ -10,7 +10,7 @@ class LoginScreen extends StatelessWidget {
 
   void _login(BuildContext context) async {
     final response = await http.post(
-      Uri.parse('http://192.168.0.106:8080/login'),
+      Uri.parse('http://192.168.216.250:8080/login'),
       body: {
         'username': _usernameController.text,
         'password': _passwordController.text,
