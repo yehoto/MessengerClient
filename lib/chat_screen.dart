@@ -82,7 +82,6 @@ class _ChatScreenState extends State<ChatScreen> {
       final message = json.decode(data);
       if (message['type'] == 'reaction') {
         setState(() {
-          // Обновляем список реакций
           _updateReaction(message);
         });
       } else if (message['type'] == 'user_status' && message['user_id'] == widget.chatId) {
@@ -102,18 +101,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _updateReaction(Map<String, dynamic> reaction) {
-    print("Обновление реакции для сообщения: ${reaction['message_id']}");
     final messageIndex = _messages.indexWhere((msg) => msg['id'] == reaction['message_id']);
     if (messageIndex != -1) {
-      print("Сообщение найдено, обновляем реакции");
       setState(() {
         final message = _messages[messageIndex];
         final reactions = message['reactions'] ?? [];
         reactions.add(reaction);
         _messages[messageIndex]['reactions'] = reactions;
       });
-    } else {
-      print("Сообщение не найдено");
     }
   }
   // chat_screen.dart (исправленный код)
@@ -181,6 +176,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
+    final createdAt = message['created_at'] as String? ?? '';
     final isSystem = message['is_system'] as bool? ?? false;
 
     if (isSystem) {
@@ -191,9 +187,22 @@ class _ChatScreenState extends State<ChatScreen> {
             color: Colors.grey.withOpacity(0.2),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text(
-            text,
-            style: TextStyle(color: Colors.grey[600]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              SizedBox(height: 4), // Отступ между текстом и временем
+              Text(
+                _formatTime(createdAt), // Время под текстом
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 10, // Уменьшаем размер шрифта
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -202,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return GestureDetector(
       onTapDown: (details) {
         final tapPosition = details.globalPosition;
-        _showReactionPicker(context, message['id'], tapPosition);
+        _showReactionPicker(context, message['id'], tapPosition, message);
       },
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -248,6 +257,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  String _formatTime(String isoTime) {
+    final dateTime = DateTime.parse(isoTime).toLocal(); // Преобразуем в локальное время
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
   Widget _buildReactions(int messageId) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _loadReactions(messageId),
@@ -331,12 +346,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _showReactionPicker(BuildContext context, int messageId, Offset tapPosition) {
+  void _showReactionPicker(BuildContext context, int messageId, Offset tapPosition, Map<String, dynamic> message) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(tapPosition, tapPosition),
       Offset.zero & overlay.size,
     );
+
+    final createdAt = _formatTime(message['created_at'] as String? ?? '');
+    final deliveredAt = message['delivered_at'] != null ? _formatTime(message['delivered_at']) : 'Не доставлено';
+    final readAt = message['read_at'] != null ? _formatTime(message['read_at']) : 'Не прочитано';
 
     showMenu(
       context: context,
@@ -345,6 +364,7 @@ class _ChatScreenState extends State<ChatScreen> {
         PopupMenuItem(
           child: Column(
             children: [
+              // Строка с реакциями
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: ['😀', '😍', '😂'].map((emoji) {
@@ -369,12 +389,139 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }).toList(),
               ),
+
+              // Плашка с информацией о статусе
+              Container(
+                padding: EdgeInsets.all(8),
+                margin: EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Статус сообщения:",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "Доставлено: $deliveredAt",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    Text(
+                      "Прочитано: $readAt",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    Text(
+                      "Изменено: $createdAt",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Кнопки
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.reply, size: 20),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Реализация ответа
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.forward, size: 20),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Реализация пересылки
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.push_pin, size: 20),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Реализация пересылки
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit, size: 20),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Реализация пересылки
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete, size: 20),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Реализация удаления
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ],
     );
   }
+
+  // void _showMessageOptions(BuildContext context, int messageId) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     builder: (context) {
+  //       return Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           ListTile(
+  //             leading: Icon(Icons.reply),
+  //             title: Text("Ответить"),
+  //             onTap: () {
+  //               // Реализация ответа
+  //               Navigator.pop(context);
+  //             },
+  //           ),
+  //           ListTile(
+  //             leading: Icon(Icons.forward),
+  //             title: Text("Переслать"),
+  //             onTap: () {
+  //               // Реализация пересылки
+  //               Navigator.pop(context);
+  //             },
+  //           ),
+  //           ListTile(
+  //             leading: Icon(Icons.push_pin),
+  //             title: Text("Закрепить"),
+  //             onTap: () {
+  //               // Реализация закрепления
+  //               Navigator.pop(context);
+  //             },
+  //           ),
+  //           ListTile(
+  //             leading: Icon(Icons.edit),
+  //             title: Text("Изменить"),
+  //             onTap: () {
+  //               // Реализация изменения
+  //               Navigator.pop(context);
+  //             },
+  //           ),
+  //           ListTile(
+  //             leading: Icon(Icons.delete),
+  //             title: Text("Удалить"),
+  //             onTap: () {
+  //               // Реализация удаления
+  //               Navigator.pop(context);
+  //             },
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
   Future<void> _addReaction(int messageId, String reaction) async {
     final response = await http.post(
