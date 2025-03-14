@@ -80,7 +80,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _channel.stream.listen((data) {
       final message = json.decode(data);
-      if (message['type'] == 'user_status' && message['user_id'] == widget.chatId) {
+      if (message['type'] == 'reaction') {
+        setState(() {
+          // Обновляем список реакций
+          _updateReaction(message);
+        });
+      } else if (message['type'] == 'user_status' && message['user_id'] == widget.chatId) {
         setState(() {
           _isUserOnline = message['online'];
         });
@@ -96,6 +101,21 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _updateReaction(Map<String, dynamic> reaction) {
+    print("Обновление реакции для сообщения: ${reaction['message_id']}");
+    final messageIndex = _messages.indexWhere((msg) => msg['id'] == reaction['message_id']);
+    if (messageIndex != -1) {
+      print("Сообщение найдено, обновляем реакции");
+      setState(() {
+        final message = _messages[messageIndex];
+        final reactions = message['reactions'] ?? [];
+        reactions.add(reaction);
+        _messages[messageIndex]['reactions'] = reactions;
+      });
+    } else {
+      print("Сообщение не найдено");
+    }
+  }
   // chat_screen.dart (исправленный код)
   void _sendMessage() {
     if (_controller.text.isNotEmpty) {
@@ -321,14 +341,38 @@ class _ChatScreenState extends State<ChatScreen> {
     showMenu(
       context: context,
       position: position,
-      items: ['😀', '😍', '😂', '😡', '👍', '👎'].map((emoji) {
-        return PopupMenuItem(
-          child: Text(emoji, style: TextStyle(fontSize: 24)),
-          onTap: () {
-            _addReaction(messageId, emoji);
-          },
-        );
-      }).toList(),
+      items: [
+        PopupMenuItem(
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ['😀', '😍', '😂'].map((emoji) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _addReaction(messageId, emoji);
+                    },
+                    child: Text(emoji, style: TextStyle(fontSize: 24)),
+                  );
+                }).toList(),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ['😡', '👍', '👎'].map((emoji) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _addReaction(messageId, emoji);
+                    },
+                    child: Text(emoji, style: TextStyle(fontSize: 24)),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
