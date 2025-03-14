@@ -30,10 +30,31 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _connectToServer();
-    _loadMessages();
+    _loadMessages().then((_) { // Сначала загружаем сообщения
+      _connectToServer();       // Потом подключаемся к WebSocket
+      _loadUserStatus();
+    });
   }
 
+  Future<void> _loadUserStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.0.106:8080/user-status?user_id=${widget.partnerId}&chat_id=${widget.chatId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> status = json.decode(responseBody);
+        setState(() {
+          _isUserOnline = status['online'];
+        });
+      } else {
+        print("Ошибка загрузки статуса: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Ошибка загрузки статуса: $e");
+    }
+  }
   @override
   void didUpdateWidget(ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -42,13 +63,22 @@ class _ChatScreenState extends State<ChatScreen> {
     if (oldWidget.chatId != widget.chatId) {
       setState(() {
         _messages.clear(); // Очищаем старые сообщения
+        _isUserOnline = false; // Сбрасываем статус пользователя
+
       });
       _loadMessages(); // Загружаем сообщения для нового чата
+      _closeWebSocket(); // Закрываем текущее соединение
+      _connectToServer(); // Создаем новое соединение с новым chatId
+      _loadUserStatus();
     }
   }
 
 
-
+  void _closeWebSocket() {
+    if (_channel != null) {
+      _channel.sink.close();
+    }
+  }
 
   Future<void> _loadMessages() async {
     try {
@@ -74,9 +104,22 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _connectToServer() {
-    _channel = WebSocketChannel.connect(
-      Uri.parse('ws://192.168.0.106:8080/ws?user_id=${widget.currentUserId}'),
+    // Проверка значений
+    if (widget.currentUserId == null || widget.chatId == null) {
+      print("Error: Missing user_id or chat_id");
+      return;
+    }
+
+    // Формирование URL с явным кодированием
+    final uri = Uri.parse(
+        'ws://192.168.0.106:8080/ws'
+            '?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}'
+            '&chat_id=${Uri.encodeComponent(widget.chatId.toString())}'
     );
+
+    print("Connecting to: $uri");
+
+    _channel = WebSocketChannel.connect(uri);
 
     _channel.stream.listen((data) {
       final message = json.decode(data);
@@ -84,7 +127,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _updateReaction(message);
         });
-      } else if (message['type'] == 'user_status' && message['user_id'] == widget.chatId) {
+      } else  if (message['type'] == 'user_status' && message['user_id'] == widget.partnerId) {
         setState(() {
           _isUserOnline = message['online'];
         });
@@ -99,6 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
       print("WebSocket соединение закрыто");
     });
   }
+
 
   void _updateReaction(Map<String, dynamic> reaction) {
     final messageIndex = _messages.indexWhere((msg) => msg['id'] == reaction['message_id']);
@@ -489,59 +533,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // void _showMessageOptions(BuildContext context, int messageId) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     builder: (context) {
-  //       return Column(
-  //         mainAxisSize: MainAxisSize.min,
-  //         children: [
-  //           ListTile(
-  //             leading: Icon(Icons.reply),
-  //             title: Text("Ответить"),
-  //             onTap: () {
-  //               // Реализация ответа
-  //               Navigator.pop(context);
-  //             },
-  //           ),
-  //           ListTile(
-  //             leading: Icon(Icons.forward),
-  //             title: Text("Переслать"),
-  //             onTap: () {
-  //               // Реализация пересылки
-  //               Navigator.pop(context);
-  //             },
-  //           ),
-  //           ListTile(
-  //             leading: Icon(Icons.push_pin),
-  //             title: Text("Закрепить"),
-  //             onTap: () {
-  //               // Реализация закрепления
-  //               Navigator.pop(context);
-  //             },
-  //           ),
-  //           ListTile(
-  //             leading: Icon(Icons.edit),
-  //             title: Text("Изменить"),
-  //             onTap: () {
-  //               // Реализация изменения
-  //               Navigator.pop(context);
-  //             },
-  //           ),
-  //           ListTile(
-  //             leading: Icon(Icons.delete),
-  //             title: Text("Удалить"),
-  //             onTap: () {
-  //               // Реализация удаления
-  //               Navigator.pop(context);
-  //             },
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
   Future<void> _addReaction(int messageId, String reaction) async {
     final response = await http.post(
       Uri.parse('http://192.168.0.106:8080/add-reaction'),
@@ -652,6 +643,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _channel.sink.close();
+    _closeWebSocket(); // Закрываем соединение при уничтожении виджета
     super.dispose();
   }
 }
