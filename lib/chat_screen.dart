@@ -112,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
   // chat_screen.dart (исправленный код)
-  void _sendMessage() {
+  void _sendMessage()async {
     if (_controller.text.isNotEmpty) {
       final message = {
         'chat_id': widget.chatId,
@@ -127,8 +127,27 @@ class _ChatScreenState extends State<ChatScreen> {
       // _messages.insert(0, message); // Добавляем в начало списка
       // });
 
+      // Отправляем сообщение на сервер
       _channel.sink.add(json.encode(message));
+
+      // Очищаем поле ввода
       _controller.clear();
+
+
+      // Ждем ответа от сервера с id
+      final response = await _channel.stream.firstWhere((data) {
+        final decoded = json.decode(data);
+        return decoded['chat_id'] == widget.chatId && decoded['text'] == message['text'];
+      });
+
+      final serverMessage = json.decode(response);
+
+      // Добавляем сообщение с id от сервера в список
+      setState(() {
+        _messages.insert(0, serverMessage);
+      });
+
+
     }
   }
 
