@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'chat_screen.dart';
 import 'new_chat_screen.dart';
+import 'profile_menu.dart';
 
 class ChatListScreen extends StatefulWidget {
   final int userId;
@@ -22,6 +23,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
   bool isLoading = true;
   double _chatListWidth = 300; // Начальная ширина списка чатов
   int? _selectedChatId; // ID выбранного чата
+
+  // Ключ для управления состоянием Scaffold
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Проверка платформы
   bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -134,6 +138,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             icon: Icon(Icons.person, color: Colors.white),
             onPressed: () {
               // Переход в профиль
+              Scaffold.of(context).openDrawer();
             },
           ),
           IconButton(
@@ -171,6 +176,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 icon: Icon(Icons.person, color: Colors.deepPurple),
                 onPressed: () {
                   // Переход в профиль
+                  //_showProfileMenu(context); // Показываем меню профиля
+                  // Открываем Drawer
+                  _scaffoldKey.currentState?.openDrawer();
                 },
               ),
               IconButton(
@@ -217,7 +225,22 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   // Макет для десктоп/веб
   Widget _buildDesktopLayout() {
-    return Row(
+    return Scaffold(
+        key: _scaffoldKey, // Используем GlobalKey для управления Scaffold
+        drawer: ProfileMenu(
+        username: 'username', // Замените на данные из базы данных
+        name: 'Имя пользователя', // Замените на данные из базы данных
+        bio: 'Информация о себе', // Замените на данные из базы данных
+        image: null, // Замените на данные из базы данных
+        registrationDate: '2023-10-01', // Замените на данные из базы данных
+        onEditProfile: () {
+      // Переход на экран редактирования профиля
+    },
+    onDeleteProfile: () {
+    // Удаление профиля
+    },
+    ),
+    body: Row(
       children: [
         // Список чатов
         Container(
@@ -292,7 +315,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
             partnerId: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_id'], // Передаем partnerId
           ),
         ),
+
       ],
+    ),
     );
   }
 
@@ -346,10 +371,26 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+     // appBar: isMobile ? _buildMobileAppBar() : null,
       appBar: isMobile ? _buildMobileAppBar() : null,
+      drawer: ProfileMenu(
+        username: 'username', // Замените на данные из базы данных
+        name: 'Имя пользователя', // Замените на данные из базы данных
+        bio: 'Информация о себе', // Замените на данные из базы данных
+        image: null, // Замените на данные из базы данных
+        registrationDate: '2023-10-01', // Замените на данные из базы данных
+        onEditProfile: () {
+          // Переход на экран редактирования профиля
+        },
+        onDeleteProfile: () {
+          // Удаление профиля
+        },
+      ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : isDesktopOrWeb ? _buildDesktopLayout() : _buildMobileLayout(),
     );
   }
+
 }
+
