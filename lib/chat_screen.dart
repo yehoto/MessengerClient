@@ -278,8 +278,8 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: Row(
-          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
@@ -292,33 +292,38 @@ class _ChatScreenState extends State<ChatScreen> {
                   bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
                   bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    text,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 16,
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                  if (message['id'] != null) _buildReactions(message['id']),
+                  SizedBox(width: 8), // Отступ между текстом и временем
+                  Text(
+                    _formatTime(createdAt), // Используем локальное время
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
+            if (message['id'] != null) _buildReactions(message['id']),
           ],
         ),
       ),
     );
   }
+
 
   String _formatTime(String isoTime) {
     final dateTime = DateTime.parse(isoTime).toLocal(); // Преобразуем в локальное время
