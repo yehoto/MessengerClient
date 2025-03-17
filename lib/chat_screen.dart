@@ -349,7 +349,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   return Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                     // color: Colors.grey[200],
+                      // color: Colors.grey[200],
                       color: Colors.purpleAccent,
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -561,21 +561,27 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Кружочек с фото или первой буквой имени
-            _buildUserAvatar(),
+            GestureDetector(
+              onTap: () => _showPartnerProfile(context), // Открываем профиль
+              child: _buildUserAvatar(),
+            ),
             SizedBox(width: 10),
             // Имя и статус
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.username),
-                Text(
-                  _isUserOnline ? 'В сети' : 'Не в сети',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _isUserOnline ? Colors.green : Colors.grey,
+            GestureDetector(
+              onTap: () => _showPartnerProfile(context), // Открываем профиль
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.username),
+                  Text(
+                    _isUserOnline ? 'В сети' : 'Не в сети',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _isUserOnline ? Colors.green : Colors.grey,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             SizedBox(width: 20),
             // Значок лупы
@@ -645,5 +651,68 @@ class _ChatScreenState extends State<ChatScreen> {
     _channel.sink.close();
     _closeWebSocket(); // Закрываем соединение при уничтожении виджета
     super.dispose();
+  }
+  void _showPartnerProfile(BuildContext context) async {
+    try {
+      // Загружаем данные профиля собеседника
+      final response = await http.get(
+        Uri.parse('http://192.168.0.106:8080/user/profile?id=${widget.partnerId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> profile = json.decode(responseBody);
+
+        // Открываем диалоговое окно с данными
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text('Профиль'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Фото или кружок с первой буквой имени
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: profile['image'] != null
+                        ? MemoryImage(base64Decode(profile['image']))
+                        : null,
+                    child: profile['image'] == null
+                        ? Text(
+                      profile['name']?.isNotEmpty == true
+                          ? profile['name'][0].toUpperCase()
+                          : '?',
+                      style: TextStyle(fontSize: 24, color: Colors.white),
+                    )
+                        : null,
+                  ),
+                  SizedBox(height: 10),
+                  Text('Имя: ${profile['name'] ?? 'Не указано'}'),
+                  Text('@${profile['username'] ?? 'Не указано'}'),
+                  Text('О себе: ${profile['bio'] ?? 'Нет информации'}'),
+                  Text('Дата регистрации: ${profile['registrationDate'] ?? 'Не указана'}'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Закрываем диалог
+                  },
+                  child: Text('Закрыть'),
+                ),
+              ],
+            );
+          },
+        );
+      } else {
+        throw Exception('Ошибка загрузки профиля: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Ошибка при загрузке профиля: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось загрузить профиль')),
+      );
+    }
   }
 }
