@@ -131,26 +131,32 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return AppBar(
       backgroundColor: Colors.deepPurple,
       elevation: 4,
+      automaticallyImplyLeading: true, // Включаем автоматическое меню (три полоски)
+      iconTheme: IconThemeData(color: Colors.white), // Делаем все иконки белыми
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              // Переход в профиль
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.add, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => NewChatScreen(userId: widget.userId),
-                ),
-              );
-            },
+          // IconButton(
+          //   icon: Icon(Icons.person, color: Colors.white),
+          //   onPressed: () {
+          //     // Переход в профиль
+          //     Scaffold.of(context).openDrawer();
+          //   },
+          // ),
+          Expanded(
+            child: Center(
+              child: IconButton(
+                icon: Icon(Icons.add, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NewChatScreen(userId: widget.userId),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.search, color: Colors.white),
@@ -387,19 +393,35 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     // appBar: isMobile ? _buildMobileAppBar() : null,
       appBar: isMobile ? _buildMobileAppBar() : null,
-      drawer: ProfileMenu(
-        username: 'username', // Замените на данные из базы данных
-        name: 'Имя пользователя', // Замените на данные из базы данных
-        bio: 'Информация о себе', // Замените на данные из базы данных
-        image: null, // Замените на данные из базы данных
-        registrationDate: '2023-10-01', // Замените на данные из базы данных
-        onEditProfile: () {
-          // Переход на экран редактирования профиля
-        },
-        onDeleteProfile: () {
-          // Удаление профиля
+      drawer: FutureBuilder<Map<String, dynamic>>(
+        future: _loadUserProfile(widget.userId), // Динамические данные
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return ProfileMenu(
+              username: "Ошибка",
+              name: "Не удалось загрузить",
+              bio: "",
+              image: null,
+              registrationDate: "",
+              onEditProfile: () {},
+              onDeleteProfile: () {},
+            );
+          }
+
+          final userProfile = snapshot.data!;
+          return ProfileMenu(
+            username: userProfile['username'] ?? "Пользователь",
+            name: userProfile['name'] ?? "Имя не указано",
+            bio: userProfile['bio'] ?? "",
+            image: userProfile['image'],
+            registrationDate: userProfile['registrationDate'] ?? "",
+            onEditProfile: () {/* Редактирование */},
+            onDeleteProfile: () {/* Удаление */},
+          );
         },
       ),
       body: isLoading
