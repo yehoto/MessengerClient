@@ -226,20 +226,36 @@ class _ChatListScreenState extends State<ChatListScreen> {
   // Макет для десктоп/веб
   Widget _buildDesktopLayout() {
     return Scaffold(
-        key: _scaffoldKey, // Используем GlobalKey для управления Scaffold
-        drawer: ProfileMenu(
-        username: 'username', // Замените на данные из базы данных
-        name: 'Имя пользователя', // Замените на данные из базы данных
-        bio: 'Информация о себе', // Замените на данные из базы данных
-        image: null, // Замените на данные из базы данных
-        registrationDate: '2023-10-01', // Замените на данные из базы данных
-        onEditProfile: () {
-      // Переход на экран редактирования профиля
-    },
-    onDeleteProfile: () {
-    // Удаление профиля
-    },
-    ),
+      key: _scaffoldKey,
+      drawer: FutureBuilder<Map<String, dynamic>>(
+        future: _loadUserProfile(widget.userId), // Загружаем данные профиля
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Ошибка загрузки профиля'));
+          } else if (!snapshot.hasData) {
+            return Center(child: Text('Данные профиля отсутствуют'));
+          }
+
+          final userProfile = snapshot.data!;
+          return ProfileMenu(
+            username: userProfile['username'] ?? 'username',
+            name: userProfile['name'] ?? 'Имя пользователя',
+            bio: userProfile['bio'] ?? 'Информация о себе',
+            image: userProfile['image'] != null
+                ? Uint8List.fromList(userProfile['image'].cast<int>())
+                : null,
+            registrationDate: userProfile['registrationDate'] ?? '2023-10-01',
+            onEditProfile: () {
+              // Переход на экран редактирования профиля
+            },
+            onDeleteProfile: () {
+              // Удаление профиля
+            },
+          );
+        },
+      ),
     body: Row(
       children: [
         // Список чатов
@@ -390,6 +406,36 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ? Center(child: CircularProgressIndicator())
           : isDesktopOrWeb ? _buildDesktopLayout() : _buildMobileLayout(),
     );
+  }
+  Future<Map<String, dynamic>> _loadUserProfile(int userId) async {
+    if (userId == null) {
+      throw Exception('User ID is null');
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.0.106:8080/user/profile?id=$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = utf8.decode(response.bodyBytes);
+        print("Ответ от сервера: $responseBody"); // Логируем ответ
+
+        final decodedResponse = json.decode(responseBody);
+
+        // Декодируем Base64 строку в Uint8List, если изображение есть
+        if (decodedResponse['image'] != null) {
+          decodedResponse['image'] = base64Decode(decodedResponse['image']);
+        }
+
+        return decodedResponse;
+      } else {
+        throw Exception('Failed to load user profile: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Ошибка при загрузке профиля: $e"); // Логируем ошибку
+      throw Exception('Failed to load user profile: $e');
+    }
   }
 
 }
