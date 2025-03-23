@@ -9,6 +9,8 @@ import 'chat_screen.dart';
 import 'new_chat_screen.dart';
 import 'profile_menu.dart';
 
+import 'new_group_chatscreen.dart';
+
 class ChatListScreen extends StatefulWidget {
   final int userId;
 
@@ -148,12 +150,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
               child: IconButton(
                 icon: Icon(Icons.add, color: Colors.white),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NewChatScreen(userId: widget.userId),
-                    ),
-                  );
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(
+                  //     builder: (context) => NewChatScreen(userId: widget.userId),
+                  //   ),
+                  // );
+                  _showChatTypeSelection(context);
                 },
               ),
             ),
@@ -169,6 +172,43 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
+  // Новый метод для отображения выбора типа чата
+  void _showChatTypeSelection(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(Icons.person_add, color: Colors.deepPurple),
+            title: Text('Личный чат'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NewChatScreen(userId: widget.userId),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.group_add, color: Colors.deepPurple),
+            title: Text('Групповой чат'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NewGroupChatScreen(userId: widget.userId),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
   // Верхняя часть списка чатов для ПК/веб
   Widget _buildDesktopChatListHeader() {
     return Column(
@@ -210,12 +250,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton(
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => NewChatScreen(userId: widget.userId),
-                ),
-              );
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(
+              //     builder: (context) => NewChatScreen(userId: widget.userId),
+              //   ),
+              // );
+              _showChatTypeSelection(context);
             },
             child: Text('Создать чат'),
             style: ElevatedButton.styleFrom(
@@ -278,28 +319,33 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                 )
-                    : ListView.builder(
+                //     : ListView.builder(
+                //   itemCount: chats.length,
+                //   itemBuilder: (context, index) {
+                //     final chat = chats[index];
+                //     return ListTile(
+                //       leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']), // Используем _buildAvatar
+                //       title: Text(chat['partner_name'] ?? 'Новый чат'),
+                //       subtitle: Text(chat['lastMessage'] ?? ''),
+                //       trailing: chat['unread'] > 0
+                //           ? CircleAvatar(
+                //         radius: 12,
+                //         child: Text(chat['unread'].toString()),
+                //       )
+                //           : null,
+                //       onTap: () {
+                //         setState(() {
+                //           _selectedChatId = chat['id'];
+                //         });
+                //       },
+                //     );
+                //   },
+                // ),
+                :ListView.builder(
                   itemCount: chats.length,
-                  itemBuilder: (context, index) {
-                    final chat = chats[index];
-                    return ListTile(
-                      leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']), // Используем _buildAvatar
-                      title: Text(chat['partner_name'] ?? 'Новый чат'),
-                      subtitle: Text(chat['lastMessage'] ?? ''),
-                      trailing: chat['unread'] > 0
-                          ? CircleAvatar(
-                        radius: 12,
-                        child: Text(chat['unread'].toString()),
-                      )
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedChatId = chat['id'];
-                        });
-                      },
-                    );
-                  },
+                  itemBuilder: (context, index) => _buildChatItem(chats[index]),
                 ),
+
               ),
               _buildDesktopChatListFooter(),
             ],
@@ -352,43 +398,48 @@ class _ChatListScreenState extends State<ChatListScreen> {
         style: TextStyle(fontSize: 18, color: Colors.grey),
       ),
     )
-        : ListView.builder(
+    :ListView.builder(
       itemCount: chats.length,
-      itemBuilder: (context, index) {
-        final chat = chats[index];
-        final partnerName = chat['partner_name'] as String? ?? 'Новый чат';
-        final partnerId = chat['partner_id'] as int?;
-        final lastMessage = chat['lastMessage'] as String? ?? '';
-        final unread = chat['unread'] as int? ?? 0;
-
-        return ListTile(
-          leading: _buildAvatar(partnerName, partnerId), // Используем _buildAvatar
-          title: Text(partnerName),
-          subtitle: Text(lastMessage),
-          trailing: unread > 0
-              ? CircleAvatar(
-            radius: 12,
-            child: Text(unread.toString()),
-          )
-              : null,
-          onTap: () {
-            if (chat['id'] != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                    chatId: chat['id'],
-                    username: chat['partner_name'] ?? 'Новый чат',
-                    currentUserId: widget.userId,
-                    partnerId: chat['partner_id'], // Передаем partnerId
-                  ),
-                ),
-              );
-            }
-          },
-        );
-      },
+      itemBuilder: (context, index) => _buildChatItem(chats[index]),
     );
+
+    //     : ListView.builder(
+    //   itemCount: chats.length,
+    //   itemBuilder: (context, index) {
+    //     final chat = chats[index];
+    //     final partnerName = chat['partner_name'] as String? ?? 'Новый чат';
+    //     final partnerId = chat['partner_id'] as int?;
+    //     final lastMessage = chat['lastMessage'] as String? ?? '';
+    //     final unread = chat['unread'] as int? ?? 0;
+    //
+    //     return ListTile(
+    //       leading: _buildAvatar(partnerName, partnerId), // Используем _buildAvatar
+    //       title: Text(partnerName),
+    //       subtitle: Text(lastMessage),
+    //       trailing: unread > 0
+    //           ? CircleAvatar(
+    //         radius: 12,
+    //         child: Text(unread.toString()),
+    //       )
+    //           : null,
+    //       onTap: () {
+    //         if (chat['id'] != null) {
+    //           Navigator.push(
+    //             context,
+    //             MaterialPageRoute(
+    //               builder: (context) => ChatScreen(
+    //                 chatId: chat['id'],
+    //                 username: chat['partner_name'] ?? 'Новый чат',
+    //                 currentUserId: widget.userId,
+    //                 partnerId: chat['partner_id'], // Передаем partnerId
+    //               ),
+    //             ),
+    //           );
+    //         }
+    //       },
+    //     );
+    //   },
+    // );
   }
   @override
   Widget build(BuildContext context) {
@@ -458,6 +509,44 @@ class _ChatListScreenState extends State<ChatListScreen> {
       print("Ошибка при загрузке профиля: $e"); // Логируем ошибку
       throw Exception('Failed to load user profile: $e');
     }
+  }
+
+  // Добавьте этот метод в класс _ChatListScreenState
+  Widget _buildChatItem(Map<String, dynamic> chat) {
+    final isGroup = chat['is_group'] ?? false;
+    final chatName = isGroup
+        ? chat['chat_name'] ?? 'Групповой чат'
+        : chat['partner_name'] ?? 'Личный чат';
+    final lastMessage = chat['last_message'] ?? '';
+    final unread = chat['unread'] ?? 0;
+
+    return ListTile(
+      leading: isGroup
+          ? CircleAvatar(
+        backgroundColor: Colors.deepPurple,
+        child: Icon(Icons.group, color: Colors.white),
+      )
+          : _buildAvatar(chatName, chat['partner_id']),
+      title: Text(chatName),
+      subtitle: Text(lastMessage),
+      trailing: unread > 0
+          ? CircleAvatar(
+        radius: 12,
+        backgroundColor: Colors.deepPurple,
+        child: Text(
+          unread.toString(),
+          style: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      )
+          : null,
+      onTap: () {
+        if (isGroup) {
+          // Обработка группового чата
+        } else {
+          // Обработка личного чата
+        }
+      },
+    );
   }
 
 }
