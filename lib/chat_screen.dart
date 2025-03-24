@@ -8,13 +8,15 @@ class ChatScreen extends StatefulWidget {
   final int chatId;
   final String username;
   final int currentUserId;
-  final int partnerId; // Добавляем partnerId
+  final int? partnerId; // Добавляем partnerId
+  final bool? isGroup; // Обязательный параметр
 
   ChatScreen({
     required this.chatId,
     required this.username,
     required this.currentUserId,
-    required this.partnerId, // Добавляем partnerId
+    this.partnerId, // Добавляем partnerId
+    this.isGroup, // Обязательный параметр
   });
 
   @override
@@ -195,7 +197,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<Uint8List?> _loadUserImage(int userId) async {
+  Future<Uint8List?> _loadUserImage(int? userId) async {
+    if (userId == null) {
+      return null; // Если partnerId равен null, фото отсутствует
+    }
     final response = await http.get(
       Uri.parse('http://192.168.0.106:8080/user/image?id=$userId'),
     );

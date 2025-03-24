@@ -55,12 +55,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
       if (response.statusCode == 200) {
         final responseBody = utf8.decode(response.bodyBytes);
-        print("Ответ от серверааа: $responseBody");
+        //print("Ответ от серверааа: $responseBody");
 
         if (responseBody != null && responseBody.isNotEmpty) {
           final decodedResponse = json.decode(responseBody);
           setState(() {
             chats = decodedResponse is List ? decodedResponse : [];
+            print("Ответ от сервера: $chats['partnerName']");
             isLoading = false;
           });
         } else {
@@ -275,7 +276,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       key: _scaffoldKey,
       drawer: FutureBuilder<Map<String, dynamic>>(
-        future: _loadUserProfile(widget.userId), // Загружаем данные профиля
+        future: _loadUserProfile(widget.userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -303,92 +304,96 @@ class _ChatListScreenState extends State<ChatListScreen> {
           );
         },
       ),
-    body: Row(
-      children: [
-        // Список чатов
-        Container(
-          width: _chatListWidth,
-          child: Column(
-            children: [
-              _buildDesktopChatListHeader(),
-              Expanded(
-                child: chats.isEmpty
-                    ? Center(
-                  child: Text(
-                    'Чатов пока нет',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                )
-                //     : ListView.builder(
-                //   itemCount: chats.length,
-                //   itemBuilder: (context, index) {
-                //     final chat = chats[index];
-                //     return ListTile(
-                //       leading: _buildAvatar(chat['partner_name'] ?? '', chat['partner_id']), // Используем _buildAvatar
-                //       title: Text(chat['partner_name'] ?? 'Новый чат'),
-                //       subtitle: Text(chat['lastMessage'] ?? ''),
-                //       trailing: chat['unread'] > 0
-                //           ? CircleAvatar(
-                //         radius: 12,
-                //         child: Text(chat['unread'].toString()),
-                //       )
-                //           : null,
-                //       onTap: () {
-                //         setState(() {
-                //           _selectedChatId = chat['id'];
-                //         });
-                //       },
-                //     );
-                //   },
-                // ),
-                :ListView.builder(
-                  itemCount: chats.length,
-                  itemBuilder: (context, index) => _buildChatItem(chats[index]),
-                ),
-
-              ),
-              _buildDesktopChatListFooter(),
-            ],
-          ),
-        ),
-
-        // Вертикальный разделитель
-        GestureDetector(
-          onPanUpdate: (details) {
-            setState(() {
-              _chatListWidth += details.delta.dx;
-              if (_chatListWidth < 100) _chatListWidth = 100; // Минимальная ширина
-              if (_chatListWidth > 400) _chatListWidth = 400; // Максимальная ширина
-            });
-          },
-          child: Container(
-            width: 8,
-            color: Colors.grey[300],
-          ),
-        ),
-
-        // Выбранный чат
-        Expanded(
-          child: _selectedChatId == null
-              ? Center(
-            child: Text(
-              'Выберите чат',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
+      body: Row(
+        children: [
+          // Список чатов (левая панель)
+          Container(
+            width: _chatListWidth,
+            decoration: BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.grey.shade300)),
             ),
-          )
-              : ChatScreen(
-            chatId: _selectedChatId!,
-            username: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_name'] ?? 'Новый чат',
-            currentUserId: widget.userId, // Передаем ID текущего пользователя
-            partnerId: chats.firstWhere((chat) => chat['id'] == _selectedChatId)['partner_id'], // Передаем partnerId
+            child: Column(
+              children: [
+                _buildDesktopChatListHeader(),
+                Expanded(
+                  child: chats.isEmpty
+                      ? Center(
+                    child: Text(
+                      'Чатов пока нет',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                  )
+                      : ListView.builder(
+                    itemCount: chats.length,
+                    itemBuilder: (context, index) {
+                      final chat = chats[index];
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedChatId = chat['id'];
+                          });
+                        },
+                        child: _buildChatItem(chat),
+                      );
+                    },
+                  ),
+                ),
+                _buildDesktopChatListFooter(),
+              ],
+            ),
           ),
-        ),
 
-      ],
-    ),
+          // Вертикальный разделитель с возможностью изменения ширины
+          GestureDetector(
+            onPanUpdate: (details) {
+              setState(() {
+                _chatListWidth += details.delta.dx;
+                _chatListWidth = _chatListWidth.clamp(200.0, 400.0);
+              });
+            },
+            child: Container(
+              width: 8,
+              color: Colors.grey[300],
+            ),
+          ),
+
+          // Область выбранного чата (правая часть)
+          Expanded(
+            child: _selectedChatId == null
+                ? Center(
+              child: Text(
+                'Выберите чат',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            )
+                : ChatScreen(
+              chatId: _selectedChatId!,
+              username: chats.firstWhere(
+                    (chat) => chat['id'] == _selectedChatId,
+                orElse: () => {
+                  'partner_name': 'Чат',
+                  'chat_name': 'Чат',
+                  'is_group': false
+                },
+              )[chats.firstWhere(
+                    (chat) => chat['id'] == _selectedChatId,
+                orElse: () => {'is_group': false},
+              )['is_group'] ? 'chat_name' : 'partner_name'] ?? 'Чат',
+              currentUserId: widget.userId,
+              partnerId: chats.firstWhere(
+                    (chat) => chat['id'] == _selectedChatId,
+                orElse: () => {'partner_id': null},
+              )['partner_id'],
+              isGroup: chats.firstWhere(
+                    (chat) => chat['id'] == _selectedChatId,
+                orElse: () => {'is_group': false},
+              )['is_group'],
+            ),
+          ),
+        ],
+      ),
     );
   }
-
   // Макет для мобильных устройств
   Widget _buildMobileLayout() {
     return chats.isEmpty
@@ -398,7 +403,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         style: TextStyle(fontSize: 18, color: Colors.grey),
       ),
     )
-    :ListView.builder(
+        :ListView.builder(
       itemCount: chats.length,
       itemBuilder: (context, index) => _buildChatItem(chats[index]),
     );
@@ -492,7 +497,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
       if (response.statusCode == 200) {
         final responseBody = utf8.decode(response.bodyBytes);
-        print("Ответ от сервера: $responseBody"); // Логируем ответ
+        //print("Ответ от сервера: $responseBody"); // Логируем ответ
 
         final decodedResponse = json.decode(responseBody);
 
@@ -511,20 +516,35 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
-  // Добавьте этот метод в класс _ChatListScreenState
   Widget _buildChatItem(Map<String, dynamic> chat) {
     final isGroup = chat['is_group'] ?? false;
+    final dynamic imageData = chat['group_image'];
+    Uint8List? imageBytes;
+
+    if (imageData != null) {
+      if (imageData is String) {
+        imageBytes = base64Decode(imageData);
+      } else if (imageData is List) {
+        imageBytes = Uint8List.fromList(List<int>.from(imageData));
+      }
+    }
+
     final chatName = isGroup
         ? chat['chat_name'] ?? 'Групповой чат'
         : chat['partner_name'] ?? 'Личный чат';
-    final lastMessage = chat['last_message'] ?? '';
+    final lastMessage = chat['lastMessage'] ?? '';
     final unread = chat['unread'] ?? 0;
 
     return ListTile(
       leading: isGroup
           ? CircleAvatar(
         backgroundColor: Colors.deepPurple,
-        child: Icon(Icons.group, color: Colors.white),
+        backgroundImage: imageBytes != null
+            ? MemoryImage(imageBytes)
+            : null,
+        child: imageBytes == null
+            ? Icon(Icons.group, color: Colors.white)
+            : null,
       )
           : _buildAvatar(chatName, chat['partner_id']),
       title: Text(chatName),
@@ -539,15 +559,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ),
       )
           : null,
-      onTap: () {
-        if (isGroup) {
-          // Обработка группового чата
-        } else {
-          // Обработка личного чата
-        }
-      },
+      selected: _selectedChatId == chat['id'],
+      selectedTileColor: Colors.deepPurple.withOpacity(0.1),
     );
   }
 
 }
-
