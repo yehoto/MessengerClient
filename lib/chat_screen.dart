@@ -9,14 +9,14 @@ class ChatScreen extends StatefulWidget {
   final String username;
   final int currentUserId;
   final int? partnerId; // Добавляем partnerId
-  final bool? isGroup; // Обязательный параметр
+  final bool isGroup; // Обязательный параметр
 
   ChatScreen({
     required this.chatId,
     required this.username,
     required this.currentUserId,
-    this.partnerId, // Добавляем partnerId
-    this.isGroup, // Обязательный параметр
+    required this.partnerId, // Добавляем partnerId
+    required this.isGroup // Обязательный параметр
   });
 
   @override
@@ -29,13 +29,46 @@ class _ChatScreenState extends State<ChatScreen> {
   List<Map<String, dynamic>> _messages = [];
   bool _isUserOnline = false; // Состояние для статуса пользователя
 
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _loadMessages().then((_) { // Сначала загружаем сообщения
+  //     _connectToServer();       // Потом подключаемся к WebSocket
+  //     _loadUserStatus();
+  //   });
+  // }
+
   @override
   void initState() {
     super.initState();
-    _loadMessages().then((_) { // Сначала загружаем сообщения
-      _connectToServer();       // Потом подключаемся к WebSocket
-      _loadUserStatus();
+    _loadChatInfo().then((_) {
+      _loadMessages().then((_) {
+        _connectToServer();
+        if (!widget.isGroup) {
+          _loadUserStatus();
+        }
+      });
     });
+  }
+
+  Future<void> _loadChatInfo() async {
+    if (widget.isGroup) {
+      try {
+        final response = await http.get(
+          Uri.parse('http://192.168.0.106:8080/group-info?chat_id=${widget.chatId}'),
+        );
+
+        if (response.statusCode == 200) {
+          final groupInfo = json.decode(response.body);
+          setState(() {
+           // _groupName = groupInfo['name'];
+           // _groupImage = groupInfo['image'];
+          });
+        }
+      } catch (e) {
+        print("Error loading group info: $e");
+      }
+    }
   }
 
   Future<void> _loadUserStatus() async {
@@ -241,11 +274,175 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
   }
+  // Widget _buildMessageBubble(Map<String, dynamic> message) {
+  //   final isMe = message['user_id'] == widget.currentUserId;
+  //   final text = message['text'] as String? ?? '';
+  //   final createdAt = message['created_at'] as String? ?? '';
+  //   final isSystem = message['is_system'] as bool? ?? false;
+  //
+  //   if (isSystem) {
+  //     return Center(
+  //       child: Container(
+  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+  //         decoration: BoxDecoration(
+  //           color: Colors.grey.withOpacity(0.2),
+  //           borderRadius: BorderRadius.circular(20),
+  //         ),
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Text(
+  //               text,
+  //               style: TextStyle(color: Colors.grey[600]),
+  //             ),
+  //             SizedBox(height: 4), // Отступ между текстом и временем
+  //             Text(
+  //               _formatTime(createdAt), // Время под текстом
+  //               style: TextStyle(
+  //                 color: Colors.grey[600],
+  //                 fontSize: 10, // Уменьшаем размер шрифта
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     );
+  //   }
+  //
+  //   return GestureDetector(
+  //     onTapDown: (details) {
+  //       final tapPosition = details.globalPosition;
+  //       _showReactionPicker(context, message['id'], tapPosition, message);
+  //     },
+  //     child: Padding(
+  //       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+  //       child: Column(
+  //         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+  //         children: [
+  //           Container(
+  //             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+  //             padding: EdgeInsets.all(12),
+  //             decoration: BoxDecoration(
+  //               color: isMe ? Colors.deepPurple : Colors.grey[200],
+  //               borderRadius: BorderRadius.only(
+  //                 topLeft: Radius.circular(16),
+  //                 topRight: Radius.circular(16),
+  //                 bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
+  //                 bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+  //               ),
+  //             ),
+  //             child: Row(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.end,
+  //               children: [
+  //                 Flexible(
+  //                   child: Text(
+  //                     text,
+  //                     style: TextStyle(
+  //                       color: isMe ? Colors.white : Colors.black87,
+  //                       fontSize: 16,
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 SizedBox(width: 8), // Отступ между текстом и временем
+  //                 Text(
+  //                   _formatTime(createdAt), // Используем локальное время
+  //                   style: TextStyle(
+  //                     color: isMe ? Colors.white70 : Colors.black54,
+  //                     fontSize: 12,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           if (message['id'] != null) _buildReactions(message['id']),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+  // Widget _buildMessageBubble(Map<String, dynamic> message) {
+  //   final isMe = message['isMe'] as bool? ?? false;
+  //   final isGroup = message['is_group'] as bool? ?? false;
+  //   final text = message['text'] as String? ?? '';
+  //   final createdAt = message['created_at'] as String? ?? '';
+  //   final isSystem = message['is_system'] as bool? ?? false;
+  //   final senderName = message['sender_name'] as String?;
+  //   final senderImage = message['sender_image'] as Uint8List?;
+  //
+  //   if (isSystem) {
+  //     return Center(
+  //       child: Container(
+  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+  //         decoration: BoxDecoration(
+  //           color: Colors.grey.withOpacity(0.2),
+  //           borderRadius: BorderRadius.circular(20),
+  //         ),
+  //         child: Text(
+  //           text,
+  //           style: TextStyle(color: Colors.grey[600]),
+  //         ),
+  //       ),
+  //     );
+  //   }
+  //
+  //   return Padding(
+  //     padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+  //     child: Column(
+  //       crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+  //       children: [
+  //         if (isGroup && !isMe)
+  //           Padding(
+  //             padding: EdgeInsets.only(bottom: 4),
+  //             child: Text(
+  //               senderName ?? 'Unknown',
+  //               style: TextStyle(
+  //                 fontSize: 12,
+  //                 color: Colors.grey[600],
+  //               ),
+  //             ),
+  //           ),
+  //         Container(
+  //           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+  //           padding: EdgeInsets.all(12),
+  //           decoration: BoxDecoration(
+  //             color: isMe ? Colors.deepPurple : Colors.grey[200],
+  //             borderRadius: BorderRadius.only(
+  //               topLeft: Radius.circular(16),
+  //               topRight: Radius.circular(16),
+  //               bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
+  //               bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+  //             ),
+  //           ),
+  //           child: Text(
+  //             text,
+  //             style: TextStyle(
+  //               color: isMe ? Colors.white : Colors.black87,
+  //             ),
+  //           ),
+  //         ),
+  //         Padding(
+  //           padding: EdgeInsets.only(top: 4),
+  //           child: Text(
+  //             _formatTime(createdAt),
+  //             style: TextStyle(
+  //               fontSize: 10,
+  //               color: Colors.grey,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
     final createdAt = message['created_at'] as String? ?? '';
     final isSystem = message['is_system'] as bool? ?? false;
+    final isGroup = widget.isGroup ?? false;
+    final senderId = message['user_id'];
 
     if (isSystem) {
       return Center(
@@ -262,12 +459,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 text,
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              SizedBox(height: 4), // Отступ между текстом и временем
+              SizedBox(height: 4),
               Text(
-                _formatTime(createdAt), // Время под текстом
+                _formatTime(createdAt),
                 style: TextStyle(
                   color: Colors.grey[600],
-                  fontSize: 10, // Уменьшаем размер шрифта
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -286,6 +483,47 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
+            if (isGroup && !isMe)
+              Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    FutureBuilder<Uint8List?>(
+                      future: _loadUserImage(senderId),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircleAvatar(radius: 12);
+                        } else if (snapshot.hasData && snapshot.data != null) {
+                          return CircleAvatar(
+                            radius: 12,
+                            backgroundImage: MemoryImage(snapshot.data!),
+                          );
+                        } else {
+                          return CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.grey,
+                            child: Text(
+                              message['sender_name']?.isNotEmpty == true
+                                  ? message['sender_name'][0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(fontSize: 12, color: Colors.white),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      message['sender_name'] ?? 'Unknown',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
               padding: EdgeInsets.all(12),
@@ -311,9 +549,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 8), // Отступ между текстом и временем
+                  SizedBox(width: 8),
                   Text(
-                    _formatTime(createdAt), // Используем локальное время
+                    _formatTime(createdAt),
                     style: TextStyle(
                       color: isMe ? Colors.white70 : Colors.black54,
                       fontSize: 12,
@@ -328,7 +566,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-
 
   String _formatTime(String isoTime) {
     final dateTime = DateTime.parse(isoTime).toLocal(); // Преобразуем в локальное время
