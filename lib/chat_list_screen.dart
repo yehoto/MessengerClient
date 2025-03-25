@@ -561,7 +561,75 @@ class _ChatListScreenState extends State<ChatListScreen> {
           : null,
       selected: _selectedChatId == chat['id'],
       selectedTileColor: Colors.deepPurple.withOpacity(0.1),
+      onTap: () {
+        if (isMobile) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                chatId: chat['id'],
+                username: chatName,
+                currentUserId: widget.userId,
+                partnerId: chat['partner_id'],
+                isGroup: isGroup,
+              ),
+            ),
+          );
+        } else {
+          setState(() {
+            _selectedChatId = chat['id'];
+          });
+        }
+      },
     );
   }
+
+  // Widget _buildChatItem(Map<String, dynamic> chat) {
+  //   final isGroup = chat['is_group'] ?? false;
+  //   final dynamic imageData = chat['group_image'];
+  //   Uint8List? imageBytes;
+  //
+  //   if (imageData != null) {
+  //     if (imageData is String) {
+  //       imageBytes = base64Decode(imageData);
+  //     } else if (imageData is List) {
+  //       imageBytes = Uint8List.fromList(List<int>.from(imageData));
+  //     }
+  //   }
+  //
+  //   final chatName = isGroup
+  //       ? chat['chat_name'] ?? 'Групповой чат'
+  //       : chat['partner_name'] ?? 'Личный чат';
+  //   final lastMessage = chat['lastMessage'] ?? '';
+  //   final unread = chat['unread'] ?? 0;
+  //
+  //   return ListTile(
+  //     leading: isGroup
+  //         ? CircleAvatar(
+  //       backgroundColor: Colors.deepPurple,
+  //       backgroundImage: imageBytes != null
+  //           ? MemoryImage(imageBytes)
+  //           : null,
+  //       child: imageBytes == null
+  //           ? Icon(Icons.group, color: Colors.white)
+  //           : null,
+  //     )
+  //         : _buildAvatar(chatName, chat['partner_id']),
+  //     title: Text(chatName),
+  //     subtitle: Text(lastMessage),
+  //     trailing: unread > 0
+  //         ? CircleAvatar(
+  //       radius: 12,
+  //       backgroundColor: Colors.deepPurple,
+  //       child: Text(
+  //         unread.toString(),
+  //         style: TextStyle(color: Colors.white, fontSize: 12),
+  //       ),
+  //     )
+  //         : null,
+  //     selected: _selectedChatId == chat['id'],
+  //     selectedTileColor: Colors.deepPurple.withOpacity(0.1),
+  //   );
+  // }
 
 }
