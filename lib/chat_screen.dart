@@ -34,7 +34,6 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isUserOnline = false; // Состояние для статуса пользователя
   int? _replyToMessageId;
   Map<String, dynamic>? _replyingMessage;
-  Map<int, GlobalKey> messageKeys = {};
   int? _highlightedMessageId; // Добавляем в состояние
   final ItemScrollController itemScrollController = ItemScrollController();
 
@@ -279,11 +278,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
-    final key = GlobalKey();
-   // messageKeys[message['id']] = key;
-    if (message['id'] != null) {
-      messageKeys[message['id']] = key; // Всегда обновляем ключи
-    }
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
     final createdAt = message['created_at'] as String? ?? '';
@@ -313,7 +307,6 @@ class _ChatScreenState extends State<ChatScreen> {
         message['parent_content'] != null &&
         (message['parent_content'] as String).isNotEmpty) {
       return Padding(
-        key: key,
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -477,7 +470,6 @@ class _ChatScreenState extends State<ChatScreen> {
         _showReactionPicker(context, message['id'], tapPosition, message);
       },
       child: Padding(
-        key: key,
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
