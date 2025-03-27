@@ -12,6 +12,8 @@ class ChatScreen extends StatefulWidget {
   final int? partnerId; // Добавляем partnerId
   final bool isGroup; // Обязательный параметр
 
+
+
   ChatScreen({
     required this.chatId,
     required this.username,
@@ -32,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   int? _replyToMessageId;
   Map<String, dynamic>? _replyingMessage;
   Map<int, GlobalKey> messageKeys = {};
+  int? _highlightedMessageId; // Добавляем в состояние
 
   void _startReply(Map<String, dynamic> message) {
     print('Начинаем ответ на сообщение: $message');
@@ -40,6 +43,21 @@ class _ChatScreenState extends State<ChatScreen> {
       _replyingMessage = message;
     });
   }
+
+  void _highlightMessage(int messageId) {
+    setState(() {
+      _highlightedMessageId = messageId;
+    });
+
+    Future.delayed(Duration(seconds: 2), () {
+      if (_highlightedMessageId == messageId) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
+  }
+
 
   // @override
   // void initState() {
@@ -75,8 +93,8 @@ class _ChatScreenState extends State<ChatScreen> {
         if (response.statusCode == 200) {
           final groupInfo = json.decode(response.body);
           setState(() {
-           // _groupName = groupInfo['name'];
-           // _groupImage = groupInfo['image'];
+            // _groupName = groupInfo['name'];
+            // _groupImage = groupInfo['image'];
           });
         }
       } catch (e) {
@@ -280,44 +298,44 @@ class _ChatScreenState extends State<ChatScreen> {
     final isGroup = widget.isGroup;
     final senderId = message['user_id'];
 
+    // Пересланные сообщения
     if (message['is_forwarded'] == true) {
       return Column(
         children: [
           Text('Переслано от: ${message['original_sender_name'] ?? 'Неизвестно'}'),
           Container(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: message['user_id'] == widget.currentUserId ? Colors.deepPurple : Colors.grey[200],
+              color: isMe ? Colors.deepPurple : Colors.grey[200],
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(message['text']),
+            child: Text(text),
           ),
         ],
       );
     }
 
+    // Сообщения-ответы
     if (message['parent_message_id'] != null &&
         message['parent_content'] != null &&
-        message['parent_content'].isNotEmpty) {
-      final key = GlobalKey();
-      messageKeys[message['id']] = key;
+        (message['parent_content'] as String).isNotEmpty) {
       return Padding(
         key: key,
-        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Avatar and name for group chats (if not the current user)
-            if (widget.isGroup && !isMe)
+            // Аватар и имя для групповых чатов (если не свое сообщение)
+            if (isGroup && !isMe)
               Padding(
-                padding: EdgeInsets.only(bottom: 4), // Note: 'bottom' might be intended here
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
                     FutureBuilder<Uint8List?>(
-                      future: _loadUserImage(message['user_id']),
+                      future: _loadUserImage(senderId),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return CircleAvatar(radius: 12);
+                          return const CircleAvatar(radius: 12);
                         }
                         if (snapshot.hasData && snapshot.data != null) {
                           return CircleAvatar(
@@ -329,13 +347,15 @@ class _ChatScreenState extends State<ChatScreen> {
                           radius: 12,
                           backgroundColor: Colors.grey,
                           child: Text(
-                            message['sender_name']?[0].toUpperCase() ?? '?',
-                            style: TextStyle(fontSize: 12, color: Colors.white),
+                            message['sender_name']?.isNotEmpty == true
+                                ? message['sender_name'][0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(fontSize: 12, color: Colors.white),
                           ),
                         );
                       },
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       message['sender_name'] ?? 'Unknown',
                       style: TextStyle(
@@ -347,30 +367,35 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
               ),
-            // Reply preview wrapped in GestureDetector
+            // Превью ответа с кликабельной областью
             GestureDetector(
               onTap: () {
-                final parentId = message['parent_message_id'];
+                final parentId = int.tryParse(message['parent_message_id'].toString());
                 if (parentId != null &&
                     messageKeys.containsKey(parentId) &&
                     messageKeys[parentId]!.currentContext != null) {
+                  // Скролл к родительскому сообщению
                   Scrollable.ensureVisible(
                     messageKeys[parentId]!.currentContext!,
                     alignment: 0.5,
-                    duration: Duration(milliseconds: 300),
+                    duration: const Duration(milliseconds: 300),
                   );
+                  // Подсветка родительского сообщения
+                  _highlightMessage(parentId);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Сообщение не найдено в истории')),
+                    const SnackBar(content: Text('Сообщение не найдено в истории')),
                   );
                 }
               },
               child: Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-                  border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+                  color: _highlightedMessageId == message['parent_message_id']
+                      ? Colors.yellow[200]
+                      : Colors.grey[100],
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  border: const Border(left: BorderSide(width: 4, color: Colors.purple)),
                 ),
                 child: Text(
                   'Ответ на: ${message['parent_content']}',
@@ -382,13 +407,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
-            // Message bubble
+            // Само сообщение-ответ
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isMe ? Colors.deepPurple : Colors.grey[200],
-                borderRadius: BorderRadius.only(
+                color: _highlightedMessageId == message['id']
+                    ? Colors.yellow[200]
+                    : (isMe ? Colors.deepPurple : Colors.grey[200]),
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
                 ),
@@ -406,7 +433,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     _formatTime(createdAt),
                     style: TextStyle(
@@ -421,10 +448,12 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     }
+
+    // Системные сообщения
     if (isSystem) {
       return Center(
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.grey.withOpacity(0.2),
             borderRadius: BorderRadius.circular(20),
@@ -433,35 +462,42 @@ class _ChatScreenState extends State<ChatScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(text, style: TextStyle(color: Colors.grey[600])),
-              SizedBox(height: 4),
-              Text(_formatTime(createdAt), style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+              const SizedBox(height: 4),
+              Text(
+                _formatTime(createdAt),
+                style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              ),
             ],
           ),
         ),
       );
     }
 
+    // Обычные сообщения
     return GestureDetector(
+      onTap: () {
+        _highlightMessage(message['id']); // Подсветка при клике
+      },
       onTapDown: (details) {
         final tapPosition = details.globalPosition;
         _showReactionPicker(context, message['id'], tapPosition, message);
       },
       child: Padding(
         key: key,
-        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (isGroup && !isMe)
               Padding(
-                padding: EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
                     FutureBuilder<Uint8List?>(
                       future: _loadUserImage(senderId),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return CircleAvatar(radius: 12);
+                          return const CircleAvatar(radius: 12);
                         } else if (snapshot.hasData && snapshot.data != null) {
                           return CircleAvatar(
                             radius: 12,
@@ -475,13 +511,13 @@ class _ChatScreenState extends State<ChatScreen> {
                               message['sender_name']?.isNotEmpty == true
                                   ? message['sender_name'][0].toUpperCase()
                                   : '?',
-                              style: TextStyle(fontSize: 12, color: Colors.white),
+                              style: const TextStyle(fontSize: 12, color: Colors.white),
                             ),
                           );
                         }
                       },
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       message['sender_name'] ?? 'Unknown',
                       style: TextStyle(
@@ -495,14 +531,16 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isMe ? Colors.deepPurple : Colors.grey[200],
+                color: _highlightedMessageId == message['id']
+                    ? Colors.yellow[200] // Подсвеченное сообщение
+                    : (isMe ? Colors.deepPurple : Colors.grey[200]), // Обычное сообщение
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-                  bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
                 ),
               ),
               child: Row(
@@ -518,7 +556,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     _formatTime(createdAt),
                     style: TextStyle(
