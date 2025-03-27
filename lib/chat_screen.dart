@@ -36,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _replyingMessage;
   int? _highlightedMessageId; // Добавляем в состояние
   final ItemScrollController itemScrollController = ItemScrollController();
+  int _participantsCount = 0; // Общее количество участников
 
   void _startReply(Map<String, dynamic> message) {
     print('Начинаем ответ на сообщение: $message');
@@ -76,18 +77,19 @@ class _ChatScreenState extends State<ChatScreen> {
     if (widget.isGroup) {
       try {
         final response = await http.get(
-          Uri.parse('http://192.168.0.106:8080/group-info?chat_id=${widget.chatId}'),
+          Uri.parse('http://192.168.0.106:8080/group_participants_count?chat_id=${widget.chatId}'),
         );
 
         if (response.statusCode == 200) {
           final groupInfo = json.decode(response.body);
           setState(() {
-            // _groupName = groupInfo['name'];
-            // _groupImage = groupInfo['image'];
+            _participantsCount = groupInfo['participants_count'] ?? 0;
           });
+        } else {
+          print("Ошибка загрузки информации о группе: ${response.statusCode}");
         }
       } catch (e) {
-        print("Error loading group info: $e");
+        print("Ошибка загрузки информации о группе: $e");
       }
     }
   }
@@ -914,13 +916,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.username),
-                  Text(
-                    _isUserOnline ? 'В сети' : 'Не в сети',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _isUserOnline ? Colors.green : Colors.grey,
+                  if (widget.isGroup)
+                    Text(
+                      "$_participantsCount участника",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    )
+                  else
+                    Text(
+                      _isUserOnline ? 'В сети' : 'Не в сети',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isUserOnline ? Colors.green : Colors.grey,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
