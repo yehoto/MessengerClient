@@ -268,335 +268,15 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
   }
-  // Widget _buildMessageBubble(Map<String, dynamic> message) {
-  //   final isMe = message['user_id'] == widget.currentUserId;
-  //   final text = message['text'] as String? ?? '';
-  //   final createdAt = message['created_at'] as String? ?? '';
-  //   final isSystem = message['is_system'] as bool? ?? false;
-  //
-  //   if (isSystem) {
-  //     return Center(
-  //       child: Container(
-  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-  //         decoration: BoxDecoration(
-  //           color: Colors.grey.withOpacity(0.2),
-  //           borderRadius: BorderRadius.circular(20),
-  //         ),
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             Text(
-  //               text,
-  //               style: TextStyle(color: Colors.grey[600]),
-  //             ),
-  //             SizedBox(height: 4), // Отступ между текстом и временем
-  //             Text(
-  //               _formatTime(createdAt), // Время под текстом
-  //               style: TextStyle(
-  //                 color: Colors.grey[600],
-  //                 fontSize: 10, // Уменьшаем размер шрифта
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     );
-  //   }
-  //
-  //   return GestureDetector(
-  //     onTapDown: (details) {
-  //       final tapPosition = details.globalPosition;
-  //       _showReactionPicker(context, message['id'], tapPosition, message);
-  //     },
-  //     child: Padding(
-  //       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-  //       child: Column(
-  //         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-  //         children: [
-  //           Container(
-  //             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-  //             padding: EdgeInsets.all(12),
-  //             decoration: BoxDecoration(
-  //               color: isMe ? Colors.deepPurple : Colors.grey[200],
-  //               borderRadius: BorderRadius.only(
-  //                 topLeft: Radius.circular(16),
-  //                 topRight: Radius.circular(16),
-  //                 bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-  //                 bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
-  //               ),
-  //             ),
-  //             child: Row(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.end,
-  //               children: [
-  //                 Flexible(
-  //                   child: Text(
-  //                     text,
-  //                     style: TextStyle(
-  //                       color: isMe ? Colors.white : Colors.black87,
-  //                       fontSize: 16,
-  //                     ),
-  //                   ),
-  //                 ),
-  //                 SizedBox(width: 8), // Отступ между текстом и временем
-  //                 Text(
-  //                   _formatTime(createdAt), // Используем локальное время
-  //                   style: TextStyle(
-  //                     color: isMe ? Colors.white70 : Colors.black54,
-  //                     fontSize: 12,
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //           if (message['id'] != null) _buildReactions(message['id']),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
-  // Widget _buildMessageBubble(Map<String, dynamic> message) {
-  //   final isMe = message['isMe'] as bool? ?? false;
-  //   final isGroup = message['is_group'] as bool? ?? false;
-  //   final text = message['text'] as String? ?? '';
-  //   final createdAt = message['created_at'] as String? ?? '';
-  //   final isSystem = message['is_system'] as bool? ?? false;
-  //   final senderName = message['sender_name'] as String?;
-  //   final senderImage = message['sender_image'] as Uint8List?;
-  //
-  //   if (isSystem) {
-  //     return Center(
-  //       child: Container(
-  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-  //         decoration: BoxDecoration(
-  //           color: Colors.grey.withOpacity(0.2),
-  //           borderRadius: BorderRadius.circular(20),
-  //         ),
-  //         child: Text(
-  //           text,
-  //           style: TextStyle(color: Colors.grey[600]),
-  //         ),
-  //       ),
-  //     );
-  //   }
-  //
-  //   return Padding(
-  //     padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-  //     child: Column(
-  //       crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-  //       children: [
-  //         if (isGroup && !isMe)
-  //           Padding(
-  //             padding: EdgeInsets.only(bottom: 4),
-  //             child: Text(
-  //               senderName ?? 'Unknown',
-  //               style: TextStyle(
-  //                 fontSize: 12,
-  //                 color: Colors.grey[600],
-  //               ),
-  //             ),
-  //           ),
-  //         Container(
-  //           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-  //           padding: EdgeInsets.all(12),
-  //           decoration: BoxDecoration(
-  //             color: isMe ? Colors.deepPurple : Colors.grey[200],
-  //             borderRadius: BorderRadius.only(
-  //               topLeft: Radius.circular(16),
-  //               topRight: Radius.circular(16),
-  //               bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-  //               bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
-  //             ),
-  //           ),
-  //           child: Text(
-  //             text,
-  //             style: TextStyle(
-  //               color: isMe ? Colors.white : Colors.black87,
-  //             ),
-  //           ),
-  //         ),
-  //         Padding(
-  //           padding: EdgeInsets.only(top: 4),
-  //           child: Text(
-  //             _formatTime(createdAt),
-  //             style: TextStyle(
-  //               fontSize: 10,
-  //               color: Colors.grey,
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
-  // Widget _buildMessageBubble(Map<String, dynamic> message) {
-  //   final isMe = message['user_id'] == widget.currentUserId;
-  //   final text = message['text'] as String? ?? '';
-  //   final createdAt = message['created_at'] as String? ?? '';
-  //   final isSystem = message['is_system'] as bool? ?? false;
-  //   final isGroup = widget.isGroup ?? false;
-  //   final senderId = message['user_id'];
-  //
-  //   if (message['is_forwarded'] == true) {
-  //     return Column(
-  //       children: [
-  //         Text('Переслано от: ${message['original_sender_name'] ?? 'Неизвестно'}'),
-  //         // Оставшаяся часть сообщения
-  //         Container(
-  //           padding: EdgeInsets.all(12),
-  //           decoration: BoxDecoration(
-  //             color: message['user_id'] == widget.currentUserId ? Colors.deepPurple : Colors.grey[200],
-  //             borderRadius: BorderRadius.circular(16),
-  //           ),
-  //           child: Text(message['text']),
-  //         ),
-  //       ],
-  //     );
-  //   }
-  //   if (message['parent_message_id'] != null) {
-  //     return Column(
-  //       children: [
-  //         Container(
-  //           padding: EdgeInsets.all(8),
-  //           decoration: BoxDecoration(
-  //             border: Border(left: BorderSide(width: 4, color: Colors.purple)),
-  //           ),
-  //           child: Text('Ответ на: ${message['parent_content']}'),
-  //         ),
-  //         // Оставшаяся часть сообщения
-  //       ],
-  //     );
-  //   }
-  //   if (isSystem) {
-  //     return Center(
-  //       child: Container(
-  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-  //         decoration: BoxDecoration(
-  //           color: Colors.grey.withOpacity(0.2),
-  //           borderRadius: BorderRadius.circular(20),
-  //         ),
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             Text(
-  //               text,
-  //               style: TextStyle(color: Colors.grey[600]),
-  //             ),
-  //             SizedBox(height: 4),
-  //             Text(
-  //               _formatTime(createdAt),
-  //               style: TextStyle(
-  //                 color: Colors.grey[600],
-  //                 fontSize: 10,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     );
-  //   }
-  //
-  //   return GestureDetector(
-  //     onTapDown: (details) {
-  //       final tapPosition = details.globalPosition;
-  //       _showReactionPicker(context, message['id'], tapPosition, message);
-  //     },
-  //     child: Padding(
-  //       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-  //       child: Column(
-  //         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-  //         children: [
-  //           if (isGroup && !isMe)
-  //             Padding(
-  //               padding: EdgeInsets.only(bottom: 4),
-  //               child: Row(
-  //                 children: [
-  //                   FutureBuilder<Uint8List?>(
-  //                     future: _loadUserImage(senderId),
-  //                     builder: (context, snapshot) {
-  //                       if (snapshot.connectionState == ConnectionState.waiting) {
-  //                         return CircleAvatar(radius: 12);
-  //                       } else if (snapshot.hasData && snapshot.data != null) {
-  //                         return CircleAvatar(
-  //                           radius: 12,
-  //                           backgroundImage: MemoryImage(snapshot.data!),
-  //                         );
-  //                       } else {
-  //                         return CircleAvatar(
-  //                           radius: 12,
-  //                           backgroundColor: Colors.grey,
-  //                           child: Text(
-  //                             message['sender_name']?.isNotEmpty == true
-  //                                 ? message['sender_name'][0].toUpperCase()
-  //                                 : '?',
-  //                             style: TextStyle(fontSize: 12, color: Colors.white),
-  //                           ),
-  //                         );
-  //                       }
-  //                     },
-  //                   ),
-  //                   SizedBox(width: 8),
-  //                   Text(
-  //                     message['sender_name'] ?? 'Unknown',
-  //                     style: TextStyle(
-  //                       fontSize: 12,
-  //                       fontWeight: FontWeight.bold,
-  //                       color: Colors.grey[700],
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           Container(
-  //             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-  //             padding: EdgeInsets.all(12),
-  //             decoration: BoxDecoration(
-  //               color: isMe ? Colors.deepPurple : Colors.grey[200],
-  //               borderRadius: BorderRadius.only(
-  //                 topLeft: Radius.circular(16),
-  //                 topRight: Radius.circular(16),
-  //                 bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-  //                 bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
-  //               ),
-  //             ),
-  //             child: Row(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.end,
-  //               children: [
-  //                 Flexible(
-  //                   child: Text(
-  //                     text,
-  //                     style: TextStyle(
-  //                       color: isMe ? Colors.white : Colors.black87,
-  //                       fontSize: 16,
-  //                     ),
-  //                   ),
-  //                 ),
-  //                 SizedBox(width: 8),
-  //                 Text(
-  //                   _formatTime(createdAt),
-  //                   style: TextStyle(
-  //                     color: isMe ? Colors.white70 : Colors.black54,
-  //                     fontSize: 12,
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //           if (message['id'] != null) _buildReactions(message['id']),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
     final createdAt = message['created_at'] as String? ?? '';
     final isSystem = message['is_system'] as bool? ?? false;
-    final isGroup = widget.isGroup ?? false;
+    final isGroup = widget.isGroup;
     final senderId = message['user_id'];
+
     if (message['is_forwarded'] == true) {
       return Column(
         children: [
@@ -612,6 +292,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       );
     }
+
     if (message['parent_message_id'] != null &&
         message['parent_content'] != null &&
         message['parent_content'].isNotEmpty) {
@@ -620,23 +301,73 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
+            // Показываем аватар и имя только если это НЕ ваше сообщение и это групповой чат
+            if (widget.isGroup && !isMe)
+              Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    FutureBuilder<Uint8List?>(
+                      future: _loadUserImage(message['user_id']),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircleAvatar(radius: 12);
+                        }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return CircleAvatar(
+                            radius: 12,
+                            backgroundImage: MemoryImage(snapshot.data!),
+                          );
+                        }
+                        return CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Colors.grey,
+                          child: Text(
+                            message['sender_name']?[0].toUpperCase() ?? '?',
+                            style: TextStyle(fontSize: 12, color: Colors.white),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      message['sender_name'] ?? 'Unknown',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // Блок с цитатой оригинального сообщения
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 border: Border(left: BorderSide(width: 4, color: Colors.purple)),
               ),
-              child: Text('Ответ на: ${message['parent_content']}'),
+              child: Text(
+                'Ответ на: ${message['parent_content']}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[800],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ),
+
+            // Ваш ответ
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isMe ? Colors.deepPurple : Colors.grey[200],
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
-                  bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
                 ),
               ),
               child: Row(
@@ -646,13 +377,19 @@ class _ChatScreenState extends State<ChatScreen> {
                   Flexible(
                     child: Text(
                       text,
-                      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16),
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   SizedBox(width: 8),
                   Text(
                     _formatTime(createdAt),
-                    style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 12),
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -661,8 +398,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     }
-// Здесь код для обычного сообщения без блока "Ответ на:"
-
     if (isSystem) {
       return Center(
         child: Container(
@@ -682,7 +417,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     }
-
 
     return GestureDetector(
       onTapDown: (details) {
@@ -726,7 +460,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     SizedBox(width: 8),
                     Text(
                       message['sender_name'] ?? 'Unknown',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
                     ),
                   ],
                 ),
@@ -750,13 +488,19 @@ class _ChatScreenState extends State<ChatScreen> {
                   Flexible(
                     child: Text(
                       text,
-                      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16),
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   SizedBox(width: 8),
                   Text(
                     _formatTime(createdAt),
-                    style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 12),
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -1001,6 +745,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_replyingMessage == null) {
       return SizedBox.shrink();
     }
+
+    final isGroup = widget.isGroup;
+    final senderId = _replyingMessage?['user_id'];
+    final senderName = _replyingMessage?['sender_name'] ?? 'Неизвестный';
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -1018,11 +767,51 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isGroup) // Только для групповых чатов
+              Row(
+                children: [
+                  FutureBuilder<Uint8List?>(
+                    future: _loadUserImage(senderId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircleAvatar(radius: 12);
+                      }
+                      if (snapshot.hasData && snapshot.data != null) {
+                        return CircleAvatar(
+                          radius: 12,
+                          backgroundImage: MemoryImage(snapshot.data!),
+                        );
+                      }
+                      return CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Colors.grey,
+                        child: Text(
+                          senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                          style: TextStyle(fontSize: 12, color: Colors.white),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    senderName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
             Text(
-              _replyingMessage!['sender_name'] ?? 'Unknown',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              _replyingMessage!['text'],
+              style: TextStyle(
+                color: Colors.grey[800],
+                fontSize: 14,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            Text(_replyingMessage!['text']),
           ],
         ),
       ),
