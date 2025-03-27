@@ -205,18 +205,21 @@ class _ChatScreenState extends State<ChatScreen> {
       _channel.sink.add(json.encode(message));
       _controller.clear();
 
-      // Ожидание ответа от сервера
+      // Сбрасываем состояние ответа сразу после отправки
+      setState(() {
+        _replyToMessageId = null;
+        _replyingMessage = null;
+      });
+
+      // Опционально: Ожидание подтверждения от сервера
       final response = await _channel.stream.firstWhere((data) {
         final decoded = json.decode(data);
         return decoded['chat_id'] == widget.chatId && decoded['text'] == message['text'];
       });
       final serverMessage = json.decode(response);
 
-      // Обновление состояния
       setState(() {
         _messages.insert(0, serverMessage);
-        _replyToMessageId = null;
-        _replyingMessage = null;
       });
     }
   }
@@ -996,21 +999,32 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildReplyPreview() {
     if (_replyingMessage == null) {
-      return SizedBox.shrink(); // Возвращаем пустой виджет, если превью не нужно
+      return SizedBox.shrink();
     }
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(width: 4, color: Colors.purple)),
-        color: Colors.grey[100],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_replyingMessage!['sender_name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
-          Text(_replyingMessage!['text']),
-        ],
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _replyToMessageId = null;
+          _replyingMessage = null;
+        });
+      },
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+          color: Colors.grey[100],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _replyingMessage!['sender_name'] ?? 'Unknown',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(_replyingMessage!['text']),
+          ],
+        ),
       ),
     );
   }
