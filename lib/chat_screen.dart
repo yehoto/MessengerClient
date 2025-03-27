@@ -31,6 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isUserOnline = false; // Состояние для статуса пользователя
   int? _replyToMessageId;
   Map<String, dynamic>? _replyingMessage;
+  Map<int, GlobalKey> messageKeys = {};
 
   void _startReply(Map<String, dynamic> message) {
     print('Начинаем ответ на сообщение: $message');
@@ -270,6 +271,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
+    final key = GlobalKey();
+    messageKeys[message['id']] = key;
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
     final createdAt = message['created_at'] as String? ?? '';
@@ -296,15 +299,18 @@ class _ChatScreenState extends State<ChatScreen> {
     if (message['parent_message_id'] != null &&
         message['parent_content'] != null &&
         message['parent_content'].isNotEmpty) {
+      final key = GlobalKey();
+      messageKeys[message['id']] = key;
       return Padding(
+        key: key,
         padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Показываем аватар и имя только если это НЕ ваше сообщение и это групповой чат
+            // Avatar and name for group chats (if not the current user)
             if (widget.isGroup && !isMe)
               Padding(
-                padding: EdgeInsets.only(bottom: 4),
+                padding: EdgeInsets.only(bottom: 4), // Note: 'bottom' might be intended here
                 child: Row(
                   children: [
                     FutureBuilder<Uint8List?>(
@@ -341,25 +347,42 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
               ),
-            // Блок с цитатой оригинального сообщения
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-                border: Border(left: BorderSide(width: 4, color: Colors.purple)),
-              ),
-              child: Text(
-                'Ответ на: ${message['parent_content']}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[800],
-                  fontStyle: FontStyle.italic,
+            // Reply preview wrapped in GestureDetector
+            GestureDetector(
+              onTap: () {
+                final parentId = message['parent_message_id'];
+                if (parentId != null &&
+                    messageKeys.containsKey(parentId) &&
+                    messageKeys[parentId]!.currentContext != null) {
+                  Scrollable.ensureVisible(
+                    messageKeys[parentId]!.currentContext!,
+                    alignment: 0.5,
+                    duration: Duration(milliseconds: 300),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Сообщение не найдено в истории')),
+                  );
+                }
+              },
+              child: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                  border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+                ),
+                child: Text(
+                  'Ответ на: ${message['parent_content']}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[800],
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ),
-
-            // Ваш ответ
+            // Message bubble
             Container(
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
               padding: EdgeInsets.all(12),
@@ -424,6 +447,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _showReactionPicker(context, message['id'], tapPosition, message);
       },
       child: Padding(
+        key: key,
         padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
