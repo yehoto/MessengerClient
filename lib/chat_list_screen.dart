@@ -36,14 +36,42 @@ class _ChatListScreenState extends State<ChatListScreen> {
   void initState() {
     super.initState();
     _loadChats();
-    // Подключаемся к WebSocket для обновлений
-    //final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
-    //final channel = WebSocketChannel.connect(Uri.parse('ws://192.168.0.106:8080/ws'));
+
     final channel = WebSocketChannel.connect(
       Uri.parse('ws://192.168.0.106:8080/ws?user_id=${widget.userId}'),
     );
+
     channel.stream.listen((message) {
-      _loadChats(); // При любом сообщении обновляем чаты
+      final decodedMessage = json.decode(message);
+      if (decodedMessage['chat_id'] != null) {
+        _updateChatList(decodedMessage);
+      }
+    }, onError: (error) {
+      print("WebSocket error: $error");
+    }, onDone: () {
+      print("WebSocket closed");
+    });
+  }
+
+  void _updateChatList(Map<String, dynamic> message) {
+    setState(() {
+      final chatId = message['chat_id'];
+      final chatIndex = chats.indexWhere((chat) => chat['id'] == chatId);
+      if (chatIndex != -1) {
+        final updatedChat = Map<String, dynamic>.from(chats[chatIndex]);
+        updatedChat['lastMessage'] = message['text'];
+        updatedChat['timestamp'] = message['created_at'];
+        // Обновляем unread только если сообщение не от текущего пользователя или если оно явно указано
+        if (message['user_id'] != widget.userId) {
+          updatedChat['unread'] = message['unread'] ?? (updatedChat['unread'] ?? 0) + 1;
+        } else {
+          updatedChat['unread'] = message['unread'] ?? updatedChat['unread'] ?? 0;
+        }
+        chats.removeAt(chatIndex);
+        chats.insert(0, updatedChat); // Перемещаем чат наверх
+      } else {
+        _loadChats(); // Если чат новый, загружаем список заново
+      }
     });
   }
 
@@ -55,14 +83,18 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
       if (response.statusCode == 200) {
         final responseBody = utf8.decode(response.bodyBytes);
-        //print("Ответ от серверааа: $responseBody");
-
-        if (responseBody != null && responseBody.isNotEmpty) {
+        if (responseBody.isNotEmpty) {
           final decodedResponse = json.decode(responseBody);
           setState(() {
             chats = decodedResponse is List ? decodedResponse : [];
-            print("Ответ от сервера: $chats['partnerName']");
             isLoading = false;
+            // Отладка: проверяем тип group_image
+            for (var chat in chats) {
+              if (chat['group_image'] != null) {
+                print("Group image type: ${chat['group_image'].runtimeType}");
+                print("Group image sample: ${chat['group_image'].toString().substring(0, 20)}...");
+              }
+            }
           });
         } else {
           setState(() {
@@ -139,13 +171,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // IconButton(
-          //   icon: Icon(Icons.person, color: Colors.white),
-          //   onPressed: () {
-          //     // Переход в профиль
-          //     Scaffold.of(context).openDrawer();
-          //   },
-          // ),
+
           Expanded(
             child: Center(
               child: IconButton(
@@ -408,43 +434,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
       itemBuilder: (context, index) => _buildChatItem(chats[index]),
     );
 
-    //     : ListView.builder(
-    //   itemCount: chats.length,
-    //   itemBuilder: (context, index) {
-    //     final chat = chats[index];
-    //     final partnerName = chat['partner_name'] as String? ?? 'Новый чат';
-    //     final partnerId = chat['partner_id'] as int?;
-    //     final lastMessage = chat['lastMessage'] as String? ?? '';
-    //     final unread = chat['unread'] as int? ?? 0;
-    //
-    //     return ListTile(
-    //       leading: _buildAvatar(partnerName, partnerId), // Используем _buildAvatar
-    //       title: Text(partnerName),
-    //       subtitle: Text(lastMessage),
-    //       trailing: unread > 0
-    //           ? CircleAvatar(
-    //         radius: 12,
-    //         child: Text(unread.toString()),
-    //       )
-    //           : null,
-    //       onTap: () {
-    //         if (chat['id'] != null) {
-    //           Navigator.push(
-    //             context,
-    //             MaterialPageRoute(
-    //               builder: (context) => ChatScreen(
-    //                 chatId: chat['id'],
-    //                 username: chat['partner_name'] ?? 'Новый чат',
-    //                 currentUserId: widget.userId,
-    //                 partnerId: chat['partner_id'], // Передаем partnerId
-    //               ),
-    //             ),
-    //           );
-    //         }
-    //       },
-    //     );
-    //   },
-    // );
   }
   @override
   Widget build(BuildContext context) {
@@ -518,37 +507,34 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Widget _buildChatItem(Map<String, dynamic> chat) {
     final isGroup = chat['is_group'] ?? false;
-    final dynamic imageData = chat['group_image'];
-    Uint8List? imageBytes;
-
-    if (imageData != null) {
-      if (imageData is String) {
-        imageBytes = base64Decode(imageData);
-      } else if (imageData is List) {
-        imageBytes = Uint8List.fromList(List<int>.from(imageData));
-      }
-    }
-
     final chatName = isGroup
         ? chat['chat_name'] ?? 'Групповой чат'
         : chat['partner_name'] ?? 'Личный чат';
     final lastMessage = chat['lastMessage'] ?? '';
     final unread = chat['unread'] ?? 0;
 
+    // Обработка group_image
+    Uint8List? imageBytes;
+    if (isGroup && chat['group_image'] != null) {
+      if (chat['group_image'] is List) {
+        // Если это список чисел (List<dynamic> или List<int>)
+        imageBytes = Uint8List.fromList(chat['group_image'].cast<int>());
+      } else if (chat['group_image'] is String) {
+        // Если это строка Base64
+        imageBytes = base64Decode(chat['group_image']);
+      }
+    }
+
     return ListTile(
       leading: isGroup
           ? CircleAvatar(
         backgroundColor: Colors.deepPurple,
-        backgroundImage: imageBytes != null
-            ? MemoryImage(imageBytes)
-            : null,
-        child: imageBytes == null
-            ? Icon(Icons.group, color: Colors.white)
-            : null,
+        backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+        child: imageBytes == null ? Icon(Icons.group, color: Colors.white) : null,
       )
           : _buildAvatar(chatName, chat['partner_id']),
       title: Text(chatName),
-      subtitle: Text(lastMessage),
+      subtitle: Text(lastMessage.isNotEmpty ? lastMessage : 'Нет сообщений'),
       trailing: unread > 0
           ? CircleAvatar(
         radius: 12,
@@ -563,6 +549,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       selectedTileColor: Colors.deepPurple.withOpacity(0.1),
       onTap: () {
         if (isMobile) {
+          _resetUnreadCount(chat['id']);
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -576,6 +563,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             ),
           );
         } else {
+          _resetUnreadCount(chat['id']);
           setState(() {
             _selectedChatId = chat['id'];
           });
@@ -584,52 +572,26 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
-  // Widget _buildChatItem(Map<String, dynamic> chat) {
-  //   final isGroup = chat['is_group'] ?? false;
-  //   final dynamic imageData = chat['group_image'];
-  //   Uint8List? imageBytes;
-  //
-  //   if (imageData != null) {
-  //     if (imageData is String) {
-  //       imageBytes = base64Decode(imageData);
-  //     } else if (imageData is List) {
-  //       imageBytes = Uint8List.fromList(List<int>.from(imageData));
-  //     }
-  //   }
-  //
-  //   final chatName = isGroup
-  //       ? chat['chat_name'] ?? 'Групповой чат'
-  //       : chat['partner_name'] ?? 'Личный чат';
-  //   final lastMessage = chat['lastMessage'] ?? '';
-  //   final unread = chat['unread'] ?? 0;
-  //
-  //   return ListTile(
-  //     leading: isGroup
-  //         ? CircleAvatar(
-  //       backgroundColor: Colors.deepPurple,
-  //       backgroundImage: imageBytes != null
-  //           ? MemoryImage(imageBytes)
-  //           : null,
-  //       child: imageBytes == null
-  //           ? Icon(Icons.group, color: Colors.white)
-  //           : null,
-  //     )
-  //         : _buildAvatar(chatName, chat['partner_id']),
-  //     title: Text(chatName),
-  //     subtitle: Text(lastMessage),
-  //     trailing: unread > 0
-  //         ? CircleAvatar(
-  //       radius: 12,
-  //       backgroundColor: Colors.deepPurple,
-  //       child: Text(
-  //         unread.toString(),
-  //         style: TextStyle(color: Colors.white, fontSize: 12),
-  //       ),
-  //     )
-  //         : null,
-  //     selected: _selectedChatId == chat['id'],
-  //     selectedTileColor: Colors.deepPurple.withOpacity(0.1),
-  //   );
-  // }
+  // Метод для сброса unread_count
+  Future<void> _resetUnreadCount(int chatId) async {
+    try {
+      await http.post(
+        Uri.parse('http://192.168.0.106:8080/reset_unread'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'chat_id': chatId,
+          'user_id': widget.userId,
+        }),
+      );
+      setState(() {
+        final chatIndex = chats.indexWhere((chat) => chat['id'] == chatId);
+        if (chatIndex != -1) {
+          chats[chatIndex]['unread'] = 0;
+        }
+      });
+    } catch (e) {
+      print("Ошибка сброса unread_count: $e");
+    }
+  }
 
 }
