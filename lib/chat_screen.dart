@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data'; // Добавьте этот импорт
 import 'forward_screen.dart'; // Добавьте этот импорт
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
@@ -35,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _replyingMessage;
   Map<int, GlobalKey> messageKeys = {};
   int? _highlightedMessageId; // Добавляем в состояние
+  final ItemScrollController itemScrollController = ItemScrollController();
 
   void _startReply(Map<String, dynamic> message) {
     print('Начинаем ответ на сообщение: $message');
@@ -49,24 +51,14 @@ class _ChatScreenState extends State<ChatScreen> {
       _highlightedMessageId = messageId;
     });
 
-    Future.delayed(Duration(seconds: 2), () {
-      if (_highlightedMessageId == messageId) {
+    Future.delayed(Duration(seconds: 3), () {
+      if (mounted && _highlightedMessageId == messageId) {
         setState(() {
           _highlightedMessageId = null;
         });
       }
     });
   }
-
-
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _loadMessages().then((_) { // Сначала загружаем сообщения
-  //     _connectToServer();       // Потом подключаемся к WebSocket
-  //     _loadUserStatus();
-  //   });
-  // }
 
   @override
   void initState() {
@@ -80,8 +72,6 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     });
   }
-
-
 
   Future<void> _loadChatInfo() async {
     if (widget.isGroup) {
@@ -290,7 +280,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final key = GlobalKey();
-    messageKeys[message['id']] = key;
+   // messageKeys[message['id']] = key;
+    if (message['id'] != null) {
+      messageKeys[message['id']] = key; // Всегда обновляем ключи
+    }
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
     final createdAt = message['created_at'] as String? ?? '';
@@ -370,29 +363,30 @@ class _ChatScreenState extends State<ChatScreen> {
             // Превью ответа с кликабельной областью
             GestureDetector(
               onTap: () {
-                final parentId = int.tryParse(message['parent_message_id'].toString());
-                if (parentId != null &&
-                    messageKeys.containsKey(parentId) &&
-                    messageKeys[parentId]!.currentContext != null) {
-                  // Скролл к родительскому сообщению
-                  Scrollable.ensureVisible(
-                    messageKeys[parentId]!.currentContext!,
-                    alignment: 0.5,
-                    duration: const Duration(milliseconds: 300),
-                  );
-                  // Подсветка родительского сообщения
-                  _highlightMessage(parentId);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Сообщение не найдено в истории')),
-                  );
+                final parentId = message['parent_message_id'];
+                if (parentId != null) {
+                  // Находим индекс родительского сообщения
+                  final parentIndex = _messages.indexWhere((msg) => msg['id'] == parentId);
+                  if (parentIndex != -1) {
+                    // Прокручиваем к индексу
+                    itemScrollController.scrollTo(
+                      index: parentIndex,
+                      duration: Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+                    _highlightMessage(parentId);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Сообщение удалено или недоступно')),
+                    );
+                  }
                 }
               },
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: _highlightedMessageId == message['parent_message_id']
-                      ? Colors.yellow[200]
+                      ?Colors.green[200]
                       : Colors.grey[100],
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                   border: const Border(left: BorderSide(width: 4, color: Colors.purple)),
@@ -413,7 +407,7 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _highlightedMessageId == message['id']
-                    ? Colors.yellow[200]
+                    ? Colors.green[200]
                     : (isMe ? Colors.deepPurple : Colors.grey[200]),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
@@ -534,7 +528,7 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _highlightedMessageId == message['id']
-                    ? Colors.yellow[200] // Подсвеченное сообщение
+                    ? Colors.green[200] // Подсвеченное сообщение
                     : (isMe ? Colors.deepPurple : Colors.grey[200]), // Обычное сообщение
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
@@ -580,14 +574,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
+
   Widget _buildReactions(int messageId) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _loadReactions(messageId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return CircularProgressIndicator();
+          return SizedBox.shrink(); // Убрали анимацию загрузки
         } else if (snapshot.hasError) {
-          return Text('Ошибка загрузки реакций');
+          return SizedBox.shrink(); // Скрываем ошибки
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return SizedBox.shrink();
         } else {
@@ -598,12 +593,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 future: _loadUserImage(reaction['user_id']),
                 builder: (context, imageSnapshot) {
                   final hasImage = imageSnapshot.hasData && imageSnapshot.data != null;
-                  final userInitial = reaction['user_id'].toString()[0]; // Первая буква ID пользователя
+                  final userInitial = reaction['user_id'].toString()[0];
 
                   return Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      // color: Colors.grey[200],
                       color: Colors.purpleAccent,
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -943,14 +937,15 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-              child: ListView.builder(
-                // reverse: true, //
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  return _buildMessageBubble(message);
-                },
-              )
+            child: ScrollablePositionedList.builder(
+              itemScrollController: itemScrollController,
+              itemCount: _messages.length,
+              reverse: false, // Сохраняем порядок сообщений (новые внизу)
+              itemBuilder: (context, index) {
+                final message = _messages[index];
+                return _buildMessageBubble(message);
+              },
+            ),
           ),
           _buildReplyPreview(),
           Container(

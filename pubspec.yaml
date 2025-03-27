@@ -38,6 +38,7 @@ dependencies:
   http: ^1.0.0
   image_picker: ^1.0.4
   emoji_picker_flutter: ^4.3.0
+  scrollable_positioned_list: ^0.3.5
 
 dev_dependencies:
   flutter_test:
