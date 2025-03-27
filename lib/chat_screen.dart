@@ -358,10 +358,8 @@ class _ChatScreenState extends State<ChatScreen> {
               onTap: () {
                 final parentId = message['parent_message_id'];
                 if (parentId != null) {
-                  // Находим индекс родительского сообщения
                   final parentIndex = _messages.indexWhere((msg) => msg['id'] == parentId);
                   if (parentIndex != -1) {
-                    // Прокручиваем к индексу
                     itemScrollController.scrollTo(
                       index: parentIndex,
                       duration: Duration(milliseconds: 500),
@@ -379,7 +377,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: _highlightedMessageId == message['parent_message_id']
-                      ?Colors.green[200]
+                      ? Colors.green[200]
                       : Colors.grey[100],
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                   border: const Border(left: BorderSide(width: 4, color: Colors.purple)),
@@ -394,43 +392,53 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
-            // Само сообщение-ответ
-            Container(
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _highlightedMessageId == message['id']
-                    ? Colors.green[200]
-                    : (isMe ? Colors.deepPurple : Colors.grey[200]),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+            // Тело сообщения с обработчиками нажатия
+            GestureDetector(
+              onTap: () {
+                _highlightMessage(message['id']);
+              },
+              onTapDown: (details) {
+                final tapPosition = details.globalPosition;
+                _showReactionPicker(context, message['id'], tapPosition, message);
+              },
+              child: Container(
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _highlightedMessageId == message['id']
+                      ? Colors.green[200]
+                      : (isMe ? Colors.deepPurple : Colors.grey[200]),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Flexible(
-                    child: Text(
-                      text,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 16,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        text,
+                        style: TextStyle(
+                          color: isMe ? Colors.white : Colors.black87,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _formatTime(createdAt),
-                    style: TextStyle(
-                      color: isMe ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatTime(createdAt),
+                      style: TextStyle(
+                        color: isMe ? Colors.white70 : Colors.black54,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+            if (message['id'] != null) _buildReactions(message['id']),
           ],
         ),
       );
@@ -462,6 +470,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Обычные сообщения
     return GestureDetector(
+     // behavior: HitTestBehavior.translucent, // Пропускает события дальше, если нужно
       onTap: () {
         _highlightMessage(message['id']); // Подсветка при клике
       },
