@@ -3,6 +3,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data'; // Добавьте этот импорт
+import 'forward_screen.dart'; // Добавьте этот импорт
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
@@ -28,6 +29,16 @@ class _ChatScreenState extends State<ChatScreen> {
   late WebSocketChannel _channel;
   List<Map<String, dynamic>> _messages = [];
   bool _isUserOnline = false; // Состояние для статуса пользователя
+  int? _replyToMessageId;
+  Map<String, dynamic>? _replyingMessage;
+
+  void _startReply(Map<String, dynamic> message) {
+    print('Начинаем ответ на сообщение: $message');
+    setState(() {
+      _replyToMessageId = message['id'];
+      _replyingMessage = message;
+    });
+  }
 
   // @override
   // void initState() {
@@ -50,6 +61,8 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     });
   }
+
+
 
   Future<void> _loadChatInfo() async {
     if (widget.isGroup) {
@@ -139,30 +152,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _connectToServer() {
-    // Проверка значений
-    if (widget.currentUserId == null || widget.chatId == null) {
-      print("Error: Missing user_id or chat_id");
-      return;
-    }
-
-    // Формирование URL с явным кодированием
-    final uri = Uri.parse(
-        'ws://192.168.0.106:8080/ws'
-            '?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}'
-            '&chat_id=${Uri.encodeComponent(widget.chatId.toString())}'
-    );
-
-    print("Connecting to: $uri");
-
+    final uri = Uri.parse('ws://192.168.0.106:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
+    print("Подключение к WebSocket: $uri");
     _channel = WebSocketChannel.connect(uri);
 
     _channel.stream.listen((data) {
       final message = json.decode(data);
+      print('Получено сообщение через WebSocket: $message'); // Логируем входящее сообщение
       if (message['type'] == 'reaction') {
         setState(() {
           _updateReaction(message);
         });
-      } else  if (message['type'] == 'user_status' && message['user_id'] == widget.partnerId) {
+      } else if (message['type'] == 'user_status' && message['user_id'] == widget.partnerId) {
         setState(() {
           _isUserOnline = message['online'];
         });
@@ -191,42 +192,32 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
   // chat_screen.dart (исправленный код)
-  void _sendMessage()async {
+  void _sendMessage() async {
     if (_controller.text.isNotEmpty) {
       final message = {
         'chat_id': widget.chatId,
         'user_id': widget.currentUserId,
         'text': _controller.text,
-        'isMe': true, // Помечаем как свое сообщение
+        'isMe': true,
         'created_at': DateTime.now().toIso8601String(),
+        'parent_message_id': _replyToMessageId,
       };
-
-      // Оптимистично добавляем сообщение в список
-      // setState(() {
-      // _messages.insert(0, message); // Добавляем в начало списка
-      // });
-
-      // Отправляем сообщение на сервер
       _channel.sink.add(json.encode(message));
-
-      // Очищаем поле ввода
       _controller.clear();
 
-
-      // Ждем ответа от сервера с id
+      // Ожидание ответа от сервера
       final response = await _channel.stream.firstWhere((data) {
         final decoded = json.decode(data);
         return decoded['chat_id'] == widget.chatId && decoded['text'] == message['text'];
       });
-
       final serverMessage = json.decode(response);
 
-      // Добавляем сообщение с id от сервера в список
+      // Обновление состояния
       setState(() {
         _messages.insert(0, serverMessage);
+        _replyToMessageId = null;
+        _replyingMessage = null;
       });
-
-
     }
   }
 
@@ -436,6 +427,166 @@ class _ChatScreenState extends State<ChatScreen> {
   //   );
   // }
 
+  // Widget _buildMessageBubble(Map<String, dynamic> message) {
+  //   final isMe = message['user_id'] == widget.currentUserId;
+  //   final text = message['text'] as String? ?? '';
+  //   final createdAt = message['created_at'] as String? ?? '';
+  //   final isSystem = message['is_system'] as bool? ?? false;
+  //   final isGroup = widget.isGroup ?? false;
+  //   final senderId = message['user_id'];
+  //
+  //   if (message['is_forwarded'] == true) {
+  //     return Column(
+  //       children: [
+  //         Text('Переслано от: ${message['original_sender_name'] ?? 'Неизвестно'}'),
+  //         // Оставшаяся часть сообщения
+  //         Container(
+  //           padding: EdgeInsets.all(12),
+  //           decoration: BoxDecoration(
+  //             color: message['user_id'] == widget.currentUserId ? Colors.deepPurple : Colors.grey[200],
+  //             borderRadius: BorderRadius.circular(16),
+  //           ),
+  //           child: Text(message['text']),
+  //         ),
+  //       ],
+  //     );
+  //   }
+  //   if (message['parent_message_id'] != null) {
+  //     return Column(
+  //       children: [
+  //         Container(
+  //           padding: EdgeInsets.all(8),
+  //           decoration: BoxDecoration(
+  //             border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+  //           ),
+  //           child: Text('Ответ на: ${message['parent_content']}'),
+  //         ),
+  //         // Оставшаяся часть сообщения
+  //       ],
+  //     );
+  //   }
+  //   if (isSystem) {
+  //     return Center(
+  //       child: Container(
+  //         padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+  //         decoration: BoxDecoration(
+  //           color: Colors.grey.withOpacity(0.2),
+  //           borderRadius: BorderRadius.circular(20),
+  //         ),
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Text(
+  //               text,
+  //               style: TextStyle(color: Colors.grey[600]),
+  //             ),
+  //             SizedBox(height: 4),
+  //             Text(
+  //               _formatTime(createdAt),
+  //               style: TextStyle(
+  //                 color: Colors.grey[600],
+  //                 fontSize: 10,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     );
+  //   }
+  //
+  //   return GestureDetector(
+  //     onTapDown: (details) {
+  //       final tapPosition = details.globalPosition;
+  //       _showReactionPicker(context, message['id'], tapPosition, message);
+  //     },
+  //     child: Padding(
+  //       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+  //       child: Column(
+  //         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+  //         children: [
+  //           if (isGroup && !isMe)
+  //             Padding(
+  //               padding: EdgeInsets.only(bottom: 4),
+  //               child: Row(
+  //                 children: [
+  //                   FutureBuilder<Uint8List?>(
+  //                     future: _loadUserImage(senderId),
+  //                     builder: (context, snapshot) {
+  //                       if (snapshot.connectionState == ConnectionState.waiting) {
+  //                         return CircleAvatar(radius: 12);
+  //                       } else if (snapshot.hasData && snapshot.data != null) {
+  //                         return CircleAvatar(
+  //                           radius: 12,
+  //                           backgroundImage: MemoryImage(snapshot.data!),
+  //                         );
+  //                       } else {
+  //                         return CircleAvatar(
+  //                           radius: 12,
+  //                           backgroundColor: Colors.grey,
+  //                           child: Text(
+  //                             message['sender_name']?.isNotEmpty == true
+  //                                 ? message['sender_name'][0].toUpperCase()
+  //                                 : '?',
+  //                             style: TextStyle(fontSize: 12, color: Colors.white),
+  //                           ),
+  //                         );
+  //                       }
+  //                     },
+  //                   ),
+  //                   SizedBox(width: 8),
+  //                   Text(
+  //                     message['sender_name'] ?? 'Unknown',
+  //                     style: TextStyle(
+  //                       fontSize: 12,
+  //                       fontWeight: FontWeight.bold,
+  //                       color: Colors.grey[700],
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           Container(
+  //             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+  //             padding: EdgeInsets.all(12),
+  //             decoration: BoxDecoration(
+  //               color: isMe ? Colors.deepPurple : Colors.grey[200],
+  //               borderRadius: BorderRadius.only(
+  //                 topLeft: Radius.circular(16),
+  //                 topRight: Radius.circular(16),
+  //                 bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
+  //                 bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+  //               ),
+  //             ),
+  //             child: Row(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.end,
+  //               children: [
+  //                 Flexible(
+  //                   child: Text(
+  //                     text,
+  //                     style: TextStyle(
+  //                       color: isMe ? Colors.white : Colors.black87,
+  //                       fontSize: 16,
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 SizedBox(width: 8),
+  //                 Text(
+  //                   _formatTime(createdAt),
+  //                   style: TextStyle(
+  //                     color: isMe ? Colors.white70 : Colors.black54,
+  //                     fontSize: 12,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           if (message['id'] != null) _buildReactions(message['id']),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['user_id'] == widget.currentUserId;
     final text = message['text'] as String? ?? '';
@@ -443,6 +594,71 @@ class _ChatScreenState extends State<ChatScreen> {
     final isSystem = message['is_system'] as bool? ?? false;
     final isGroup = widget.isGroup ?? false;
     final senderId = message['user_id'];
+    if (message['is_forwarded'] == true) {
+      return Column(
+        children: [
+          Text('Переслано от: ${message['original_sender_name'] ?? 'Неизвестно'}'),
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: message['user_id'] == widget.currentUserId ? Colors.deepPurple : Colors.grey[200],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(message['text']),
+          ),
+        ],
+      );
+    }
+    if (message['parent_message_id'] != null &&
+        message['parent_content'] != null &&
+        message['parent_content'].isNotEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Column(
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+              ),
+              child: Text('Ответ на: ${message['parent_content']}'),
+            ),
+            Container(
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.deepPurple : Colors.grey[200],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: isMe ? Radius.circular(16) : Radius.circular(4),
+                  bottomRight: isMe ? Radius.circular(4) : Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    _formatTime(createdAt),
+                    style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+// Здесь код для обычного сообщения без блока "Ответ на:"
 
     if (isSystem) {
       return Center(
@@ -455,23 +671,15 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                text,
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+              Text(text, style: TextStyle(color: Colors.grey[600])),
               SizedBox(height: 4),
-              Text(
-                _formatTime(createdAt),
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 10,
-                ),
-              ),
+              Text(_formatTime(createdAt), style: TextStyle(color: Colors.grey[600], fontSize: 10)),
             ],
           ),
         ),
       );
     }
+
 
     return GestureDetector(
       onTapDown: (details) {
@@ -515,11 +723,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     SizedBox(width: 8),
                     Text(
                       message['sender_name'] ?? 'Unknown',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[700]),
                     ),
                   ],
                 ),
@@ -543,19 +747,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   Flexible(
                     child: Text(
                       text,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 16),
                     ),
                   ),
                   SizedBox(width: 8),
                   Text(
                     _formatTime(createdAt),
-                    style: TextStyle(
-                      color: isMe ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 12),
                   ),
                 ],
               ),
@@ -741,6 +939,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                       // Реализация ответа
+                      _startReply(message);
                     },
                   ),
                   IconButton(
@@ -748,6 +947,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                       // Реализация пересылки
+                      _startForward(message);
                     },
                   ),
                   IconButton(
@@ -769,6 +969,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                       // Реализация удаления
+                      //_deleteMessage(messageId);
                     },
                   ),
                 ],
@@ -779,7 +980,40 @@ class _ChatScreenState extends State<ChatScreen> {
       ],
     );
   }
+  void _startForward(Map<String, dynamic> message) {
+    print('Начинаем пересылку сообщения: $message'); // Логируем данные сообщения
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => ForwardScreen(
+          message: message,
+          currentUserId: widget.currentUserId,
+        ),
+      ),
+    );
+  }
 
+
+  Widget _buildReplyPreview() {
+    if (_replyingMessage == null) {
+      return SizedBox.shrink(); // Возвращаем пустой виджет, если превью не нужно
+    }
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(width: 4, color: Colors.purple)),
+        color: Colors.grey[100],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_replyingMessage!['sender_name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(_replyingMessage!['text']),
+        ],
+      ),
+    );
+  }
   Future<void> _addReaction(int messageId, String reaction) async {
     final response = await http.post(
       Uri.parse('http://192.168.0.106:8080/add-reaction'),
@@ -853,6 +1087,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               )
           ),
+          _buildReplyPreview(),
           Container(
             margin: EdgeInsets.all(8),
             decoration: BoxDecoration(
