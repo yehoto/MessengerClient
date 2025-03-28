@@ -1,6 +1,7 @@
 # Клиентская часть приложения "Мессенджер"
 ## [ функционал описан в серверной части (ссылка) ](https://github.com/yehoto/MessengerServer)
-![image](https://github.com/user-attachments/assets/3753a927-05fc-4806-931f-62aca05ec639)
+![image](https://github.com/user-attachments/assets/a5e0d5a4-c7e2-490d-9007-4102cd15c0fc)
+
 
 <table>
   <tr>
