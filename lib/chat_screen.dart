@@ -79,17 +79,22 @@ class _ChatScreenState extends State<ChatScreen> {
         final response = await http.get(
           Uri.parse('http://192.168.0.106:8080/group_participants_count?chat_id=${widget.chatId}'),
         );
-
+        print("Group info response: ${response.statusCode} - ${response.body}");
         if (response.statusCode == 200) {
           final groupInfo = json.decode(response.body);
           setState(() {
             _participantsCount = groupInfo['participants_count'] ?? 0;
           });
         } else {
-          print("Ошибка загрузки информации о группе: ${response.statusCode}");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to load participants: ${response.statusCode}")),
+          );
         }
       } catch (e) {
-        print("Ошибка загрузки информации о группе: $e");
+        print("Error loading group info: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error loading participants")),
+        );
       }
     }
   }
@@ -251,9 +256,27 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<Uint8List?> _loadImage(int? id, bool isGroup) async {
+    if (id == null) return null;
+
+    final endpoint = isGroup
+        ? 'http://192.168.0.106:8080/group/image?chat_id=$id'
+        : 'http://192.168.0.106:8080/user/image?id=$id';
+
+    final response = await http.get(Uri.parse(endpoint));
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else if (response.statusCode == 204) {
+      return null;
+    } else {
+      throw Exception('Failed to load image');
+    }
+  }
+
   Widget _buildUserAvatar() {
     return FutureBuilder<Uint8List?>(
-      future: _loadUserImage(widget.partnerId), // Загружаем фото
+      future: _loadImage(widget.chatId, widget.isGroup), // Загружаем фото
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return CircleAvatar(
@@ -472,7 +495,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Обычные сообщения
     return GestureDetector(
-     // behavior: HitTestBehavior.translucent, // Пропускает события дальше, если нужно
+      // behavior: HitTestBehavior.translucent, // Пропускает события дальше, если нужно
       onTap: () {
         _highlightMessage(message['id']); // Подсветка при клике
       },
