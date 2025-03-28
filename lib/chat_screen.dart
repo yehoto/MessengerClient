@@ -276,7 +276,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildUserAvatar() {
     return FutureBuilder<Uint8List?>(
-      future: _loadImage(widget.chatId, widget.isGroup), // Загружаем фото
+      // Используем partnerId для личных чатов и chatId для групп
+      future: _loadImage(
+        widget.isGroup ? widget.chatId : widget.partnerId,
+        widget.isGroup,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return CircleAvatar(
@@ -284,16 +288,16 @@ class _ChatScreenState extends State<ChatScreen> {
             child: CircularProgressIndicator(color: Colors.white),
           );
         } else if (snapshot.hasError || snapshot.data == null) {
-          // Если фото нет или произошла ошибка, показываем кружочек с буквой
           return CircleAvatar(
             backgroundColor: Colors.purple,
             child: Text(
-              widget.username.isNotEmpty ? widget.username[0].toUpperCase() : '?',
+              widget.username.isNotEmpty
+                  ? widget.username[0].toUpperCase()
+                  : '?',
               style: TextStyle(color: Colors.white),
             ),
           );
         } else {
-          // Если фото есть, отображаем его
           return CircleAvatar(
             backgroundImage: MemoryImage(snapshot.data!),
           );
