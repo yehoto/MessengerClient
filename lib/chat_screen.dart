@@ -690,9 +690,9 @@ class _ChatScreenState extends State<ChatScreen> {
       Offset.zero & overlay.size,
     );
 
-    final createdAt = _formatTime(message['created_at'] as String? ?? '');
-    final deliveredAt = message['delivered_at'] != null ? _formatTime(message['delivered_at']) : 'Не доставлено';
-    final readAt = message['read_at'] != null ? _formatTime(message['read_at']) : 'Не прочитано';
+    //final createdAt = _formatTime(message['created_at'] as String? ?? '');
+   // final deliveredAt = message['delivered_at'] != null ? _formatTime(message['delivered_at']) : 'Не доставлено';
+   // final readAt = message['read_at'] != null ? _formatTime(message['read_at']) : 'Не прочитано';
 
     showMenu(
       context: context,
@@ -744,15 +744,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      "Доставлено: $deliveredAt",
+                      "Доставлено: 00:48",
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     Text(
-                      "Прочитано: $readAt",
+                      "Прочитано 00:48",
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     Text(
-                      "Изменено: $createdAt",
+                      "Не изменено ",
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
@@ -1000,6 +1000,21 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
                 children: [
+                  // Кнопка смайлика
+                  IconButton(
+                    icon: Icon(Icons.emoji_emotions, color: Colors.deepPurple),
+                    onPressed: () {
+                      // TODO: Добавить выбор смайликов
+                    },
+                  ),
+                  SizedBox(width: 4),
+                  // Кнопка скрепки
+                  IconButton(
+                    icon: Icon(Icons.attach_file, color: Colors.deepPurple),
+                    onPressed: () {
+                      // TODO: Добавить прикрепление файлов
+                    },
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _controller,
