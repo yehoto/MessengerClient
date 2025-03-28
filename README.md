@@ -1,5 +1,5 @@
-## Клиентская часть приложения "Мессенджер"
-# [ функционал описан в серверной части (ссылка) ](https://github.com/yehoto/MessengerServer).
+# Клиентская часть приложения "Мессенджер"
+## [ функционал описан в серверной части (ссылка) ](https://github.com/yehoto/MessengerServer).
 ![image](https://github.com/user-attachments/assets/3753a927-05fc-4806-931f-62aca05ec639)
 
 <table>
