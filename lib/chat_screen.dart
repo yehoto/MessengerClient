@@ -77,7 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (widget.isGroup) {
       try {
         final response = await http.get(
-          Uri.parse('http://192.168.0.106:8080/group_participants_count?chat_id=${widget.chatId}'),
+          Uri.parse('http://192.168.0.100:8080/group_participants_count?chat_id=${widget.chatId}'),
         );
         print("Group info response: ${response.statusCode} - ${response.body}");
         if (response.statusCode == 200) {
@@ -102,7 +102,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadUserStatus() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/user-status?user_id=${widget.partnerId}&chat_id=${widget.chatId}'),
+        Uri.parse('http://192.168.0.100:8080/user-status?user_id=${widget.partnerId}&chat_id=${widget.chatId}'),
       );
 
       if (response.statusCode == 200) {
@@ -146,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
+        Uri.parse('http://192.168.0.100:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
@@ -167,7 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _connectToServer() {
-    final uri = Uri.parse('ws://192.168.0.106:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
+    final uri = Uri.parse('ws://192.168.0.100:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
     print("Подключение к WebSocket: $uri");
     _channel = WebSocketChannel.connect(uri);
 
@@ -186,7 +186,12 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _messages.add(message);
         });
+      }else if (message['type'] == 'message_deleted') {
+        setState(() {
+          _messages.removeWhere((m) => m['id'] == message['id']);
+        });
       }
+
     }, onError: (error) {
       print("Ошибка WebSocket: $error");
     }, onDone: () {
@@ -244,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return null; // Если partnerId равен null, фото отсутствует
     }
     final response = await http.get(
-      Uri.parse('http://192.168.0.106:8080/user/image?id=$userId'),
+      Uri.parse('http://192.168.0.100:8080/user/image?id=$userId'),
     );
 
     if (response.statusCode == 200) {
@@ -260,8 +265,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (id == null) return null;
 
     final endpoint = isGroup
-        ? 'http://192.168.0.106:8080/group/image?chat_id=$id'
-        : 'http://192.168.0.106:8080/user/image?id=$id';
+        ? 'http://192.168.0.100:8080/group/image?chat_id=$id'
+        : 'http://192.168.0.100:8080/user/image?id=$id';
 
     final response = await http.get(Uri.parse(endpoint));
 
@@ -285,7 +290,12 @@ class _ChatScreenState extends State<ChatScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return CircleAvatar(
             backgroundColor: Colors.purple,
-            child: CircularProgressIndicator(color: Colors.white),
+            child: Text(
+              widget.username.isNotEmpty
+                  ? widget.username[0].toUpperCase()
+                  : '?',
+              style: TextStyle(color: Colors.white),
+            ),
           );
         } else if (snapshot.hasError || snapshot.data == null) {
           return CircleAvatar(
@@ -668,7 +678,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<List<Map<String, dynamic>>> _loadReactions(int messageId) async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/get-reactions?message_id=$messageId'),
+        Uri.parse('http://192.168.0.100:8080/get-reactions?message_id=$messageId'),
       );
 
       print("Response status: ${response.statusCode}"); // Логируем статус ответа
@@ -802,6 +812,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                       // Реализация удаления
+                      _showDeleteDialog(message);
                       //_deleteMessage(messageId);
                     },
                   ),
@@ -905,7 +916,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
   Future<void> _addReaction(int messageId, String reaction) async {
     final response = await http.post(
-      Uri.parse('http://192.168.0.106:8080/add-reaction'),
+      Uri.parse('http://192.168.0.100:8080/add-reaction'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'message_id': messageId,
@@ -1042,6 +1053,94 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _showDeleteDialog(Map<String, dynamic> message) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.delete_outline),
+              title: Text('Удалить только у себя'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(message, forMe: true);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_forever),
+              title: Text('Удалить у всех'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(message, forMe: false);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDelete(Map<String, dynamic> message, {required bool forMe}) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Подтверждение удаления'),
+          content: Text('Вы уверены? Это действие нельзя отменить.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteMessage(message, forMe: forMe);
+              },
+              child: Text('Удалить', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteMessage(Map<String, dynamic> message, {required bool forMe}) async {
+    try {
+      final url = forMe
+          ? 'http://192.168.0.100:8080/delete-for-me'
+          : 'http://192.168.0.100:8080/delete-for-everyone';
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'message_id': message['id'],
+          'user_id': widget.currentUserId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _messages.removeWhere((m) => m['id'] == message['id']);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Сообщение удалено')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка удаления')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _channel.sink.close();
@@ -1052,7 +1151,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       // Загружаем данные профиля собеседника
       final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/user/profile?id=${widget.partnerId}'),
+        Uri.parse('http://192.168.0.100:8080/user/profile?id=${widget.partnerId}'),
       );
 
       if (response.statusCode == 200) {
