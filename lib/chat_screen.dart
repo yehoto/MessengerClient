@@ -166,6 +166,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+
   void _connectToServer() {
     final uri = Uri.parse('ws://192.168.0.100:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
     print("Подключение к WebSocket: $uri");
@@ -173,25 +174,52 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _channel.stream.listen((data) {
       final message = json.decode(data);
-      print('Получено сообщение через WebSocket: $message'); // Логируем входящее сообщение
-      if (message['type'] == 'reaction') {
+      print('Получено сообщение через WebSocket: $message');
+      if (message['type'] == 'message_edited' && message['chat_id'] == widget.chatId) {
+        print('Получено событие редактирования: ${message['id']}');
         setState(() {
-          _updateReaction(message);
+          final index = _messages.indexWhere((m) => m['id'] == message['id']);
+          if (index != -1) {
+            _messages[index]['content'] = message['new_text'];
+            _messages[index]['is_edited'] = true;
+            _messages[index]['edited_at'] = message['edited_at'];
+            print('Сообщение обновлено в UI');
+          }
         });
-      } else if (message['type'] == 'user_status' && message['user_id'] == widget.partnerId) {
-        setState(() {
-          _isUserOnline = message['online'];
-        });
-      } else if (message['chat_id'] == widget.chatId) {
-        setState(() {
-          _messages.add(message);
-        });
-      }else if (message['type'] == 'message_deleted') {
+      }else
+      if (message['type'] == 'message_deleted_for_me') {
         setState(() {
           _messages.removeWhere((m) => m['id'] == message['id']);
         });
       }
-
+      else if (message['type'] == 'message_deleted') {
+        setState(() {
+          final index = _messages.indexWhere((m) => m['id'] == message['id']);
+          if (index != -1) {
+            _messages[index]['content'] = 'Сообщение удалено';
+            _messages[index]['is_deleted'] = true;
+          }
+        });
+      }
+      else  // ОБРАБОТКА РЕДАКТИРОВАНИЯ СООБЩЕНИЯ
+      // Обработка разных типов сообщений в правильном порядке:
+      if (message['type'] == 'reaction') {
+        setState(() {
+          _updateReaction(message);
+        });
+      }
+      else if (message['type'] == 'user_status' && message['user_id'] == widget.partnerId) {
+        setState(() {
+          _isUserOnline = message['online'];
+        });
+      }
+      // ПЕРВОЕ: Обработка событий удаления
+      // ТРЕТЬЕ: Обычные сообщения (должно быть ПОСЛЕДНИМ)
+      else if (message['chat_id'] == widget.chatId) {
+        setState(() {
+          _messages.add(message);
+        });
+      }
     }, onError: (error) {
       print("Ошибка WebSocket: $error");
     }, onDone: () {
@@ -199,6 +227,36 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _handleMessageDeletion(int messageId) {
+    final index = _messages.indexWhere((m) => m['id'] == messageId);
+    if (index != -1) {
+      setState(() {
+        // Для себя: полностью удаляем сообщение
+        if (_messages[index]['is_deleted_for_me'] == true) {
+          _messages.removeAt(index);
+        }
+        // Для всех: меняем текст
+        else {
+          _messages[index]['content'] = 'Сообщение удалено';
+          _messages[index]['is_deleted'] = true;
+        }
+      });
+    }
+  }
+
+  // void _handleMessageEdit(int messageId, String newText, String editedAt, int chatId) {
+  //   // Обновляем только если сообщение в текущем чате
+  //   if (chatId != widget.chatId) return;
+  //
+  //   final index = _messages.indexWhere((m) => m['id'] == messageId);
+  //   if (index != -1) {
+  //     setState(() {
+  //       _messages[index]['content'] = newText;
+  //       _messages[index]['is_edited'] = true;
+  //       _messages[index]['edited_at'] = editedAt;
+  //     });
+  //   }
+  // }
 
   void _updateReaction(Map<String, dynamic> reaction) {
     final messageIndex = _messages.indexWhere((msg) => msg['id'] == reaction['message_id']);
@@ -324,6 +382,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final isGroup = widget.isGroup;
     final senderId = message['user_id'];
 
+    // Для сообщений, удаленных только для меня
+    if (message['is_deleted_for_me'] == true) {
+      return SizedBox.shrink(); // Не отображаем вообще
+    }
     // Пересланные сообщения
     if (message['is_forwarded'] == true) {
       return Column(
@@ -582,7 +644,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Flexible(
-                    child: Text(
+                    child: message['is_deleted'] == true
+                        ? Text(
+                      'Сообщение удалено',
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
+                    )
+                        : Text(
                       text,
                       style: TextStyle(
                         color: isMe ? Colors.white : Colors.black87,
@@ -740,7 +810,6 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }).toList(),
               ),
-
               // Плашка с информацией о статусе
               Container(
                 padding: EdgeInsets.all(8),
@@ -757,16 +826,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: TextStyle(fontSize: 12, color: Colors.grey[800]),
                     ),
                     SizedBox(height: 4),
-                    Text(
-                      "Доставлено: 00:48",
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      "Прочитано 00:48",
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      "Не изменено ",
+                    // Используем тернарный оператор вместо if-else
+                    message['is_edited'] == true
+                        ? Text(
+                      "Изменено: ${_formatTime(message['edited_at'])}",
+                      style: TextStyle(fontSize: 12, color: Colors.blue[600]),
+                    )
+                        : Text(
+                      "Не изменено",
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
@@ -804,7 +871,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     icon: Icon(Icons.edit, size: 20),
                     onPressed: () {
                       Navigator.pop(context);
-                      // Реализация пересылки
+                      _startEditMessage(message);
                     },
                   ),
                   IconButton(
@@ -833,6 +900,39 @@ class _ChatScreenState extends State<ChatScreen> {
           message: message,
           currentUserId: widget.currentUserId,
         ),
+      ),
+    );
+  }
+
+  // Функция для начала редактирования
+  void _startEditMessage(Map<String, dynamic> message) {
+    final textEditingController = TextEditingController(text: message['text']);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Редактировать сообщение"),
+        content: TextField(
+          controller: textEditingController,
+          maxLines: 4,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "Введите новый текст",
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Отмена"),
+          ),
+          TextButton(
+            onPressed: () {
+              _confirmEditMessage(message['id'], textEditingController.text);
+              Navigator.pop(context);
+            },
+            child: Text("Сохранить"),
+          ),
+        ],
       ),
     );
   }
@@ -1107,37 +1207,59 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _deleteMessage(Map<String, dynamic> message, {required bool forMe}) async {
-    try {
-      final url = forMe
-          ? 'http://192.168.0.100:8080/delete-for-me'
-          : 'http://192.168.0.100:8080/delete-for-everyone';
+  void _deleteMessage(Map<String, dynamic> message, {required bool forMe}) {
+    // Оптимистичное обновление
+    setState(() {
+      if (forMe) {
+        _messages.removeWhere((m) => m['id'] == message['id']);
+      } else {
+        final index = _messages.indexWhere((m) => m['id'] == message['id']);
+        if (index != -1) {
+          _messages[index]['content'] = 'Сообщение удалено';
+          _messages[index]['is_deleted'] = true;
+        }
+      }
+    });
 
+    // Отправка команды на сервер
+    final deleteCommand = {
+      'type': forMe ? 'delete_for_me' : 'delete_for_everyone',
+      'message_id': message['id'],
+      'user_id': widget.currentUserId,
+      'chat_id': widget.chatId,
+    };
+    _channel.sink.add(json.encode(deleteCommand));
+  }
+
+  void _confirmEditMessage(int messageId, String newText) async {
+    // Оптимистичное обновление UI
+    setState(() {
+      final index = _messages.indexWhere((m) => m['id'] == messageId);
+      if (index != -1) {
+        _messages[index]['content'] = newText;
+        _messages[index]['is_edited'] = true;
+        _messages[index]['edited_at'] = DateTime.now().toIso8601String();
+        print('Оптимистичное обновление UI');
+      }
+    });
+
+    try {
+      // Отправка HTTP запроса
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse('http://192.168.0.100:8080/edit-message'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'message_id': message['id'],
+          'message_id': messageId,
           'user_id': widget.currentUserId,
+          'new_text': newText,
         }),
       );
 
-      if (response.statusCode == 200) {
-        setState(() {
-          _messages.removeWhere((m) => m['id'] == message['id']);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Сообщение удалено')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка удаления')),
-        );
+      if (response.statusCode != 200) {
+        print('Ошибка редактирования: ${response.body}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      print('Ошибка сети: $e');
     }
   }
 
