@@ -176,16 +176,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final message = json.decode(data);
       print('Получено сообщение через WebSocket: $message');
       if (message['type'] == 'message_edited' && message['chat_id'] == widget.chatId) {
-        print('Получено событие редактирования: ${message['id']}');
-        setState(() {
-          final index = _messages.indexWhere((m) => m['id'] == message['id']);
-          if (index != -1) {
-            _messages[index]['content'] = message['new_text'];
-            _messages[index]['is_edited'] = true;
-            _messages[index]['edited_at'] = message['edited_at'];
-            print('Сообщение обновлено в UI');
-          }
-        });
+        _handleMessageEdit(message);
       }else
       if (message['type'] == 'message_deleted_for_me') {
         setState(() {
@@ -224,6 +215,25 @@ class _ChatScreenState extends State<ChatScreen> {
       print("Ошибка WebSocket: $error");
     }, onDone: () {
       print("WebSocket соединение закрыто");
+    });
+  }
+
+  void _handleMessageEdit(Map<String, dynamic> editData) {
+    final messageId = editData['id'];
+    final newText = editData['new_text'];
+    final editedAt = DateTime.parse(editData['edited_at']);
+
+    setState(() {
+      final index = _messages.indexWhere((m) => m['id'] == messageId);
+      if (index != -1) {
+        // Создаем НОВЫЙ объект сообщения
+        _messages[index] = {
+          ..._messages[index],
+          'content': newText,
+          'is_edited': true,
+          'edited_at': editedAt.toIso8601String(),
+        };
+      }
     });
   }
 
@@ -381,6 +391,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final isSystem = message['is_system'] as bool? ?? false;
     final isGroup = widget.isGroup;
     final senderId = message['user_id'];
+    final updatedMessage = Map<String, dynamic>.from(message);
 
     // Для сообщений, удаленных только для меня
     if (message['is_deleted_for_me'] == true) {
@@ -642,6 +653,33 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
+                // children: [
+                //   Flexible(
+                //     child: message['is_deleted'] == true
+                //         ? Text(
+                //       'Сообщение удалено',
+                //       style: TextStyle(
+                //         color: isMe ? Colors.white : Colors.black87,
+                //         fontSize: 16,
+                //       ),
+                //     )
+                //         : Text(
+                //       text,
+                //       style: TextStyle(
+                //         color: isMe ? Colors.white : Colors.black87,
+                //         fontSize: 16,
+                //       ),
+                //     ),
+                //   ),
+                //   const SizedBox(width: 8),
+                //   Text(
+                //     _formatTime(createdAt),
+                //     style: TextStyle(
+                //       color: isMe ? Colors.white70 : Colors.black54,
+                //       fontSize: 12,
+                //     ),
+                //   ),
+                // ],
                 children: [
                   Flexible(
                     child: message['is_deleted'] == true
@@ -653,7 +691,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     )
                         : Text(
-                      text,
+                      // Для отредактированных сообщений берем новое содержимое
+                      message['is_edited'] == true
+                          ? (message['content'] ?? text)  // content - новое содержание
+                          : text, // Иначе оригинальный текст
                       style: TextStyle(
                         color: isMe ? Colors.white : Colors.black87,
                         fontSize: 16,
@@ -1232,35 +1273,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _confirmEditMessage(int messageId, String newText) async {
-    // Оптимистичное обновление UI
     setState(() {
       final index = _messages.indexWhere((m) => m['id'] == messageId);
       if (index != -1) {
-        _messages[index]['content'] = newText;
-        _messages[index]['is_edited'] = true;
-        _messages[index]['edited_at'] = DateTime.now().toIso8601String();
-        print('Оптимистичное обновление UI');
+        _messages[index] = {
+          ..._messages[index],
+          'content': newText,
+          'is_edited': true,
+          'edited_at': DateTime.now().toIso8601String(),
+        };
       }
     });
 
-    try {
-      // Отправка HTTP запроса
-      final response = await http.post(
-        Uri.parse('http://192.168.0.100:8080/edit-message'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'message_id': messageId,
-          'user_id': widget.currentUserId,
-          'new_text': newText,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        print('Ошибка редактирования: ${response.body}');
-      }
-    } catch (e) {
-      print('Ошибка сети: $e');
-    }
+    // Отправляем через WebSocket
+    final editCommand = {
+      'type': 'edit_message',
+      'message_id': messageId,
+      'user_id': widget.currentUserId,
+      'new_text': newText,
+    };
+    _channel.sink.add(json.encode(editCommand));
   }
 
   @override
