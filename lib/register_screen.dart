@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:messenger_client/login_screen.dart';
 import 'package:image_picker/image_picker.dart'; // Для выбора изображений
 
+import 'package:http/io_client.dart';
+
 class RegisterScreen extends StatefulWidget {
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
@@ -23,10 +25,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    final client = IOClient(httpClient);
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://192.168.0.106:8080/register'),
+      Uri.parse('https://192.168.0.100:8080/register'),
     );
 
     // Добавляем текстовые поля
@@ -46,9 +51,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      var response = await request.send();
-      var responseBody = await response.stream.bytesToString();
-
+      //var response = await request.send();
+      var streamedResponse = await client.send(request);
+      //var responseBody = await response.stream.bytesToString();
+      var response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Регистрация успешна!')),
@@ -59,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка регистрации: $responseBody')),
+          SnackBar(content: Text('Ошибка регистрации: $response.body')),
         );
       }
     } catch (e) {

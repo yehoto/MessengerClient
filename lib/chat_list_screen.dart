@@ -10,6 +10,7 @@ import 'new_chat_screen.dart';
 import 'profile_menu.dart';
 
 import 'new_group_chatscreen.dart';
+import 'package:http/io_client.dart';
 
 class ChatListScreen extends StatefulWidget {
   final int userId;
@@ -38,7 +39,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     _loadChats();
 
     final channel = WebSocketChannel.connect(
-      Uri.parse('ws://192.168.0.106:8080/ws?user_id=${widget.userId}'),
+      Uri.parse('wss://192.168.0.100:8080/ws?user_id=${widget.userId}'),
     );
 
     channel.stream.listen((message) {
@@ -77,8 +78,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Future<void> _loadChats() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/chats?user_id=${widget.userId}'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/chats?user_id=${widget.userId}'),
       );
 
       if (response.statusCode == 200) {
@@ -120,9 +125,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     if (partnerId == null) {
       return null; // Если partnerId равен null, фото отсутствует
     }
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
 
-    final response = await http.get(
-      Uri.parse('http://192.168.0.106:8080/user/image?id=$partnerId'),
+    final client = IOClient(httpClient);
+    final response = await client.get(
+      Uri.parse('https://192.168.0.100:8080/user/image?id=$partnerId'),
     );
 
     if (response.statusCode == 200) {
@@ -177,12 +185,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
               child: IconButton(
                 icon: Icon(Icons.add, color: Colors.white),
                 onPressed: () {
-                  // Navigator.push(
-                  //   context,
-                  //   MaterialPageRoute(
-                  //     builder: (context) => NewChatScreen(userId: widget.userId),
-                  //   ),
-                  // );
                   _showChatTypeSelection(context);
                 },
               ),
@@ -277,12 +279,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton(
             onPressed: () {
-              // Navigator.push(
-              //   context,
-              //   MaterialPageRoute(
-              //     builder: (context) => NewChatScreen(userId: widget.userId),
-              //   ),
-              // );
               _showChatTypeSelection(context);
             },
             child: Text('Создать чат'),
@@ -480,8 +476,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/user/profile?id=$userId'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/user/profile?id=$userId'),
       );
 
       if (response.statusCode == 200) {
@@ -575,8 +575,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
   // Метод для сброса unread_count
   Future<void> _resetUnreadCount(int chatId) async {
     try {
-      await http.post(
-        Uri.parse('http://192.168.0.106:8080/reset_unread'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      await client.post(
+        Uri.parse('https://192.168.0.100:8080/reset_unread'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'chat_id': chatId,

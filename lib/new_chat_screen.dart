@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'chat_list_screen.dart';
+import 'package:http/io_client.dart';
 
 class NewChatScreen extends StatefulWidget {
   final int userId;
@@ -25,8 +27,12 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
   Future<void> _loadUsers() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.216.250:8080/users?current_user_id=${widget.userId}'), // Добавляем параметр current_user_id
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/users?current_user_id=${widget.userId}'), // Добавляем параметр current_user_id
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
@@ -56,8 +62,12 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
   Future<void> _createChat(int targetUserId) async {
     try {
-      final response = await http.post(
-        Uri.parse('http://192.168.216.250:8080/chats'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.post(
+        Uri.parse('https://192.168.0.100:8080/chats'),
         body: {
           'user_id': targetUserId.toString(),
           'current_user_id': widget.userId.toString(),

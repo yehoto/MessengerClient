@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart'; // Для выбора изображений
+import 'package:http/io_client.dart';
 
 
 
@@ -32,8 +33,12 @@ class _NewGroupChatScreenState extends State<NewGroupChatScreen> {
 
   Future<void> _loadAllUsers() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.106:8080/all-users?current_user_id=${widget.userId}'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/all-users?current_user_id=${widget.userId}'),
       );
 
       if (response.statusCode == 200) {
@@ -61,9 +66,13 @@ class _NewGroupChatScreenState extends State<NewGroupChatScreen> {
   Future<void> _createGroup() async {
     if (_formKey.currentState!.validate()) {
       try {
+        HttpClient httpClient = HttpClient()
+          ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+        final client = IOClient(httpClient);
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('http://192.168.0.106:8080/group-chats'),
+          Uri.parse('https://192.168.0.100:8080/group-chats'),
         );
 
         // Добавляем текстовые поля

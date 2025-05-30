@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data'; // Добавьте этот импорт
 import 'forward_screen.dart'; // Добавьте этот импорт
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:http/io_client.dart';
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
@@ -76,8 +78,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadChatInfo() async {
     if (widget.isGroup) {
       try {
-        final response = await http.get(
-          Uri.parse('http://192.168.0.100:8080/group_participants_count?chat_id=${widget.chatId}'),
+        HttpClient httpClient = HttpClient()
+          ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+        final client = IOClient(httpClient);
+        final response = await client.get(
+          Uri.parse('https://192.168.0.100:8080/group_participants_count?chat_id=${widget.chatId}'),
         );
         print("Group info response: ${response.statusCode} - ${response.body}");
         if (response.statusCode == 200) {
@@ -101,8 +107,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadUserStatus() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.100:8080/user-status?user_id=${widget.partnerId}&chat_id=${widget.chatId}'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/user-status?user_id=${widget.partnerId}&chat_id=${widget.chatId}'),
       );
 
       if (response.statusCode == 200) {
@@ -145,8 +155,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadMessages() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.100:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/messages?chat_id=${widget.chatId}&user_id=${widget.currentUserId}'),
       );
 
       print("Статус ответа: ${response.statusCode}"); // Логируем статус ответа
@@ -168,7 +182,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
 
   void _connectToServer() {
-    final uri = Uri.parse('ws://192.168.0.100:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
+    //final uri = Uri.parse('ws://192.168.0.100:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
+    final uri = Uri.parse('wss://192.168.0.100:8080/ws?user_id=${Uri.encodeComponent(widget.currentUserId.toString())}&chat_id=${Uri.encodeComponent(widget.chatId.toString())}');
     print("Подключение к WebSocket: $uri");
     _channel = WebSocketChannel.connect(uri);
 
@@ -237,37 +252,6 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _handleMessageDeletion(int messageId) {
-    final index = _messages.indexWhere((m) => m['id'] == messageId);
-    if (index != -1) {
-      setState(() {
-        // Для себя: полностью удаляем сообщение
-        if (_messages[index]['is_deleted_for_me'] == true) {
-          _messages.removeAt(index);
-        }
-        // Для всех: меняем текст
-        else {
-          _messages[index]['content'] = 'Сообщение удалено';
-          _messages[index]['is_deleted'] = true;
-        }
-      });
-    }
-  }
-
-  // void _handleMessageEdit(int messageId, String newText, String editedAt, int chatId) {
-  //   // Обновляем только если сообщение в текущем чате
-  //   if (chatId != widget.chatId) return;
-  //
-  //   final index = _messages.indexWhere((m) => m['id'] == messageId);
-  //   if (index != -1) {
-  //     setState(() {
-  //       _messages[index]['content'] = newText;
-  //       _messages[index]['is_edited'] = true;
-  //       _messages[index]['edited_at'] = editedAt;
-  //     });
-  //   }
-  // }
-
   void _updateReaction(Map<String, dynamic> reaction) {
     final messageIndex = _messages.indexWhere((msg) => msg['id'] == reaction['message_id']);
     if (messageIndex != -1) {
@@ -316,8 +300,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (userId == null) {
       return null; // Если partnerId равен null, фото отсутствует
     }
-    final response = await http.get(
-      Uri.parse('http://192.168.0.100:8080/user/image?id=$userId'),
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+    final client = IOClient(httpClient);
+    final response = await client .get(
+      Uri.parse('https://192.168.0.100:8080/user/image?id=$userId'),
     );
 
     if (response.statusCode == 200) {
@@ -333,10 +321,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (id == null) return null;
 
     final endpoint = isGroup
-        ? 'http://192.168.0.100:8080/group/image?chat_id=$id'
-        : 'http://192.168.0.100:8080/user/image?id=$id';
+        ? 'https://192.168.0.100:8080/group/image?chat_id=$id'
+        : 'https://192.168.0.100:8080/user/image?id=$id';
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
 
-    final response = await http.get(Uri.parse(endpoint));
+    final client = IOClient(httpClient);
+    final response = await client.get(Uri.parse(endpoint));
 
     if (response.statusCode == 200) {
       return response.bodyBytes;
@@ -653,33 +644,6 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
-                // children: [
-                //   Flexible(
-                //     child: message['is_deleted'] == true
-                //         ? Text(
-                //       'Сообщение удалено',
-                //       style: TextStyle(
-                //         color: isMe ? Colors.white : Colors.black87,
-                //         fontSize: 16,
-                //       ),
-                //     )
-                //         : Text(
-                //       text,
-                //       style: TextStyle(
-                //         color: isMe ? Colors.white : Colors.black87,
-                //         fontSize: 16,
-                //       ),
-                //     ),
-                //   ),
-                //   const SizedBox(width: 8),
-                //   Text(
-                //     _formatTime(createdAt),
-                //     style: TextStyle(
-                //       color: isMe ? Colors.white70 : Colors.black54,
-                //       fontSize: 12,
-                //     ),
-                //   ),
-                // ],
                 children: [
                   Flexible(
                     child: message['is_deleted'] == true
@@ -788,8 +752,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<List<Map<String, dynamic>>> _loadReactions(int messageId) async {
     try {
-      final response = await http.get(
-        Uri.parse('http://192.168.0.100:8080/get-reactions?message_id=$messageId'),
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/get-reactions?message_id=$messageId'),
       );
 
       print("Response status: ${response.statusCode}"); // Логируем статус ответа
@@ -814,10 +782,6 @@ class _ChatScreenState extends State<ChatScreen> {
       Rect.fromPoints(tapPosition, tapPosition),
       Offset.zero & overlay.size,
     );
-
-    //final createdAt = _formatTime(message['created_at'] as String? ?? '');
-   // final deliveredAt = message['delivered_at'] != null ? _formatTime(message['delivered_at']) : 'Не доставлено';
-   // final readAt = message['read_at'] != null ? _formatTime(message['read_at']) : 'Не прочитано';
 
     showMenu(
       context: context,
@@ -1056,8 +1020,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
   Future<void> _addReaction(int messageId, String reaction) async {
-    final response = await http.post(
-      Uri.parse('http://192.168.0.100:8080/add-reaction'),
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+    final client = IOClient(httpClient);
+    final response = await client.post(
+      Uri.parse('https://192.168.0.100:8080/add-reaction'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'message_id': messageId,
@@ -1303,9 +1271,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
   void _showPartnerProfile(BuildContext context) async {
     try {
+      HttpClient httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+      final client = IOClient(httpClient);
       // Загружаем данные профиля собеседника
-      final response = await http.get(
-        Uri.parse('http://192.168.0.100:8080/user/profile?id=${widget.partnerId}'),
+      final response = await client.get(
+        Uri.parse('https://192.168.0.100:8080/user/profile?id=${widget.partnerId}'),
       );
 
       if (response.statusCode == 200) {

@@ -1,16 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:messenger_client/chat_list_screen.dart';
 import 'package:messenger_client/register_screen.dart';
 import 'dart:convert';
+import 'package:http/io_client.dart';
 
 class LoginScreen extends StatelessWidget {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   void _login(BuildContext context) async {
-    final response = await http.post(
-      Uri.parse('http://192.168.216.250:8080/login'),
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    final client = IOClient(httpClient);
+    final response = await client.post(
+      Uri.parse('https://192.168.0.100:8080/login'),
       body: {
         'username': _usernameController.text,
         'password': _passwordController.text,

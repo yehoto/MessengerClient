@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:http/io_client.dart';
 
 class ForwardScreen extends StatelessWidget {
   final Map<String, dynamic> message;
@@ -38,7 +40,11 @@ class ForwardScreen extends StatelessWidget {
   }
 
   Future<List<Map<String, dynamic>>> _loadAvailableChats() async {
-    final response = await http.get(Uri.parse('http://192.168.0.106:8080/chats?user_id=$currentUserId'));
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+    final client = IOClient(httpClient);
+    final response = await client.get(Uri.parse('https://192.168.0.100:8080/chats?user_id=$currentUserId'));
     if (response.statusCode == 200) {
       final responseBody = response.body;
       print('Загруженные чаты: $responseBody'); // Логируем ответ сервера
@@ -73,7 +79,7 @@ class ForwardScreen extends StatelessWidget {
     print('Отправляемые данные для пересылки: $messageData');
 
     final response = await http.post(
-      Uri.parse('http://192.168.0.106:8080/forward-message'),
+      Uri.parse('http://192.168.0.100:8080/forward-message'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(messageData),
     );
